@@ -1,0 +1,139 @@
+// ─────────────────────────────────────────────────────────────
+// Tipos compartidos — MT5 Multi-Account Dashboard
+// ─────────────────────────────────────────────────────────────
+
+export interface Position {
+  ticket: number
+  symbol: string
+  type: 'BUY' | 'SELL'
+  volume: number
+  open_price: number
+  current_price?: number
+  sl?: number
+  tp?: number
+  profit: number
+  open_time?: string
+}
+
+/** Régimen de mercado detectado por QuantFib */
+export type MarketRegime = 'RANGE' | 'TREND' | 'STRONG_TREND' | 'VOLATILE' | 'UNKNOWN'
+
+/** Modo adaptativo del motor QuantFib */
+export type AdaptiveMode = 'NORMAL' | 'GUARD' | 'PAUSE' | 'UNKNOWN'
+
+/** StatusData — enviado por el bot en cada ciclo de telemetría */
+export interface StatusData {
+  broker: string
+  login: string
+  server?: string
+  name?: string
+  // Cuenta
+  balance: number
+  equity: number
+  margin: number
+  free_margin: number
+  margin_level: number
+  drawdown_pct: number
+  // QuantFib
+  regime?: MarketRegime
+  active_mode?: AdaptiveMode
+  daily_pnl_usd?: number
+  open_risk_pct?: number
+  win_rate?: number
+  profit_factor?: number
+  max_drawdown_pct?: number
+  kelly_fraction?: number
+  n_trades_cycle?: number
+  last_audit?: string
+  // Posiciones
+  positions: Position[]
+  timestamp: string
+}
+
+/** Registro almacenado en la DB */
+export interface Account {
+  id: number
+  broker: string
+  login: string
+  server?: string
+  name?: string
+  last_update?: string
+  status_data?: StatusData
+  is_active: boolean
+}
+
+export interface EquityPoint {
+  timestamp_utc: string
+  balance: number
+  equity: number
+  drawdown_pct: number
+  daily_pnl_usd?: number
+  regime?: MarketRegime
+  active_mode?: AdaptiveMode
+}
+
+export interface PerformanceSummary {
+  account_login: string
+  broker: string
+  equity_curve: EquityPoint[]
+  total_pnl_usd: number
+  max_drawdown_pct: number
+  win_rate?: number
+  profit_factor?: number
+  n_snapshots: number
+}
+
+export interface Alert {
+  id: number
+  account_login: string
+  broker: string
+  severity: 'critical' | 'warning' | 'info'
+  event_type: string
+  message: string
+  payload?: Record<string, unknown>
+  timestamp_utc: string
+  acknowledged: boolean
+}
+
+export interface WebSocketMessage {
+  type: 'accounts_update' | 'pong'
+  data?: Account[]
+}
+
+// ─── helpers ──────────────────────────────────────────────────
+export function isStale(last_update?: string, thresholdMinutes = 5): boolean {
+  if (!last_update) return true
+  return Date.now() - new Date(last_update).getTime() > thresholdMinutes * 60_000
+}
+
+export function ddColor(pct: number): string {
+  if (pct >= 20) return 'text-red-400'
+  if (pct >= 10) return 'text-yellow-400'
+  return 'text-green-400'
+}
+
+export function modeColor(mode?: AdaptiveMode): string {
+  if (mode === 'PAUSE') return 'text-red-400'
+  if (mode === 'GUARD') return 'text-yellow-400'
+  return 'text-green-400'
+}
+
+export function regimeColor(regime?: MarketRegime): string {
+  if (regime === 'STRONG_TREND') return 'text-cyan-400'
+  if (regime === 'TREND') return 'text-blue-400'
+  if (regime === 'VOLATILE') return 'text-orange-400'
+  if (regime === 'RANGE') return 'text-slate-400'
+  return 'text-slate-500'
+}
+
+export function fmtUSD(value?: number): string {
+  if (value == null) return '—'
+  const abs = Math.abs(value)
+  const sign = value < 0 ? '-' : value > 0 ? '+' : ''
+  return `${sign}$${abs.toFixed(2)}`
+}
+
+export function fmtPct(value?: number): string {
+  if (value == null) return '—'
+  return `${value.toFixed(2)}%`
+}

@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-obsidian: #050505;
+    --card-obsidian: #0f0f0f;
+    --border-obsidian: #1f1f1f;
+    --accent-gold: #ffd700;
+    --accent-cyan: #00e5ff;
+  }
+
+  body {
+    @apply bg-[#050505] text-slate-200 antialiased selection:bg-cyan-500/30;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Números técnicos siempre en Monospace */
+  .font-technical {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+@layer components {
+  .bento-card {
+    @apply bg-[#0f0f0f] border border-[#1f1f1f] rounded-xl transition-all duration-200;
+    box-shadow: 0 4px 20px -10px rgba(0, 0, 0, 0.7);
+  }
+
+  .bento-card:hover {
+    @apply border-[#333333] shadow-lg;
+  }
+
+  .vip-glow-cyan {
+    box-shadow: 0 0 20px -5px rgba(0, 229, 255, 0.15);
+  }
+
+  .vip-glow-gold {
+    box-shadow: 0 0 20px -5px rgba(255, 215, 0, 0.15);
+  }
+
+  /* Scrollbar VIP */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-black;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-[#1f1f1f] rounded-full hover:bg-slate-700 transition-colors;
+  }
+}

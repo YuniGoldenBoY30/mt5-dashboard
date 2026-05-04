@@ -1,0 +1,44 @@
+# ============================================================
+# QUANTFIB VIP DASHBOARD — .gitignore
+# ============================================================
+
+# ── Archivos de entorno — NUNCA commitear ────────────────────
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env
+dashboard_credentials.txt
+
+# ── Python ───────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# ── Node / Frontend ──────────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.local
+
+# ── Docker ───────────────────────────────────────────────────
+*.override.yml
+
+# ── Logs ─────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Base de Datos local ───────────────────────────────────────
+*.db
+*.sqlite3
+
+# ── Sistemas Operativos ───────────────────────────────────────
+.DS_Store
+Thumbs.db

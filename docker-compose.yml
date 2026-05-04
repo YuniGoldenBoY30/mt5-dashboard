@@ -1,0 +1,76 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: quantfib_db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${DASHBOARD_DB_PORT:-5432}:5432" # En producción, eliminar DASHBOARD_DB_PORT del .env para no exponerla
+    networks:
+      - internal_net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: quantfib_backend
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    env_file:
+      - .env
+      - ./backend/.env
+    ports:
+      - "${DASHBOARD_BACKEND_PORT:-8000}:8000" # En producción, eliminar DASHBOARD_BACKEND_PORT para no exponerla
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal_net
+      - public_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 1G
+    security_opt:
+      - no-new-privileges:true
+
+  frontend:
+    build: ./frontend
+    container_name: quantfib_frontend
+    restart: always
+    ports:
+      - "${DASHBOARD_PUBLIC_PORT}:80"
+    depends_on:
+      - backend
+    networks:
+      - public_net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  internal_net:
+    internal: true
+  public_net:
+    driver: bridge
+
+volumes:
+  pgdata:
+

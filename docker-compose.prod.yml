@@ -1,0 +1,33 @@
+# ============================================================
+# QUANTFIB VIP DASHBOARD — PRODUCCIÓN
+# Uso: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# ============================================================
+
+services:
+  db:
+    # No exponemos la base de datos al exterior en producción
+    ports: []
+    networks:
+      - internal_net
+
+  backend:
+    # El backend solo es accesible internamente por el frontend o Nginx/Apache
+    ports: []
+    networks:
+      - internal_net
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    restart: always
+
+  frontend:
+    # Exponemos el frontend SOLO a localhost (127.0.0.1)
+    # Apache actuará como reverse proxy enviando el tráfico aquí
+    ports:
+      - "127.0.0.1:8080:80"
+    networks:
+      - internal_net
+    restart: always
+
+networks:
+  internal_net:
+    internal: true
