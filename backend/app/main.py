@@ -56,7 +56,11 @@ async def security_hardening_middleware(request: Request, call_next):
     return response
 
 # CORS Flexible para Desarrollo, Estricto para Producción
-origins = [settings.frontend_url]
+origins = [
+    settings.frontend_url,
+    "https://trading.zenixtech.ai",
+    "http://trading.zenixtech.ai"
+]
 if settings.app_env == "development":
     origins.extend([
         "http://localhost:8082",
