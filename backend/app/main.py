@@ -32,6 +32,30 @@ app = FastAPI(
 # Rate Limiter Simple (In-Memory) - Para producción usar Redis
 rate_limit_store = defaultdict(list)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://trading.zenixtech.ai",
+        "http://trading.zenixtech.ai",
+        "http://localhost:8080",
+        "http://localhost:8082"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
+)
+
+@app.middleware("http")
+async def diagnostic_logging_middleware(request: Request, call_next):
+    # Log de depuración para 403
+    log.info(f"Petición: {request.method} {request.url}")
+    log.info(f"Headers: {dict(request.headers)}")
+    response = await call_next(request)
+    log.info(f"Respuesta: {response.status_code}")
+    return response
+
 @app.middleware("http")
 async def security_hardening_middleware(request: Request, call_next):
     # 1. Rate Limiting
@@ -68,15 +92,7 @@ if settings.app_env == "development":
         "http://localhost:5173",
     ])
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=3600,
-)
+# Middleware de CORS se movió arriba para prioridad de ejecución
 
 
 
