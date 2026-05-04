@@ -9,7 +9,7 @@
 #property description "EA to export account telemetry to Dashboard Master via HTTP POST"
 
 //--- Input parameters
-input string   InpDashboardUrl = "http://localhost:8000/api/v1/telemetry"; // URL del Dashboard Master
+input string   InpDashboardUrl = "https://trading.zenitech.ai/api/v1/telemetry"; // URL del Dashboard Master
 input string   InpApiToken     = "snqAQ8OpesIP0p1Ur8Z-H0mk-M389qdg8c3dAX8D4OhMiXFi"; // VPS_SECRET_TOKEN (Bearer)
 input string   InpApiKey       = "ZjestbIjvZj9MLzvryprX8DwC5RSk_oYJx_0Dns_yDc9Mhuf"; // X_API_KEY (Firewall)
 input string   InpVpsId        = "vps-01";                                         // Identificador unico del VPS
