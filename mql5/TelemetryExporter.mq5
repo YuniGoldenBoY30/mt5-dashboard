@@ -135,15 +135,27 @@ void SendTelemetry()
    headers += "X-API-KEY: " + InpApiKey + "\r\n";
    headers += "Authorization: Bearer " + InpApiToken + "\r\n";
    
+   Print("DEBUG: Enviando telemetría a: ", InpDashboardUrl);
+   Print("DEBUG: JSON Payload: ", payload);
+
    int res = WebRequest("POST", InpDashboardUrl, headers, 3000, post_data, result, result_headers);
    
    if(res == -1)
      {
       int error_code = GetLastError();
+      Print("ERROR CRÍTICO: WebRequest falló. Código MT5: ", error_code);
       if (error_code == 4014) {
-         Print("ERROR HTTP: Añade ", InpDashboardUrl, " a la lista de 'WebRequest' en Tools -> Options -> Expert Advisors.");
+         Print("SOLUCIÓN: Añade ", InpDashboardUrl, " a la lista de 'WebRequest' en Tools -> Options -> Expert Advisors.");
+      }
+     }
+   else
+     {
+      Print("DEBUG: Servidor respondió con código HTTP: ", res);
+      string response_text = CharArrayToString(result);
+      if (res >= 200 && res < 300) {
+         Print("SUCCESS: Datos procesados por el Dashboard. Respuesta: ", response_text);
       } else {
-         Print("Error conectando con Dashboard Master. Code: ", error_code);
+         Print("WARNING: El servidor rechazó los datos (Código ", res, "). Detalle: ", response_text);
       }
      }
   }
