@@ -12,11 +12,13 @@
 input string   InpDashboardUrl = "https://trading.zenixtech.ai/api/v1/telemetry"; // URL del Dashboard Master
 input string   InpApiToken     = "snqAQ8OpesIP0p1Ur8Z-H0mk-M389qdg8c3dAX8D4OhMiXFi"; // VPS_SECRET_TOKEN (Bearer)
 input string   InpApiKey       = "ZjestbIjvZj9MLzvryprX8DwC5RSk_oYJx_0Dns_yDc9Mhuf"; // X_API_KEY (Firewall)
-input string   InpVpsId        = "vps-01";                                         // Identificador unico del VPS (temporalmente no usado para deduplicación de .ex5; se mantiene para futura lógica)
+input string   InpVpsId        = "";                                               // Identificador único del VPS (vacío = generar UUID/ID aleatorio por instancia)
 input int      InpUpdateFreq   = 2;                                                // Frecuencia de envio en segundos
 input int      InpStatsLookbackDays = 30;                                          // Ventana de historial para stats (días)
 input bool     InpUseHalfKelly = true;                                             // Kelly conservador (Half-Kelly)
 input int      InpClosedTradesLimit = 20;                                          // Máximo de trades cerrados a enviar
+
+string g_vps_id = "";
 
 bool        history_synced = false;
 string      global_var_name;
@@ -32,8 +34,19 @@ int OnInit()
       Print("Warning: Auto trading must be allowed for Expert to function properly.");
      }
      
+   // Resolver VPS ID por instancia (evita colisiones cuando se usa el mismo .ex5)
+   if(StringLen(InpVpsId) > 0)
+      g_vps_id = InpVpsId;
+   else
+     {
+      MathSrand((int)(GetTickCount() + TimeLocal() + AccountInfoInteger(ACCOUNT_LOGIN)));
+      int r1 = MathRand();
+      int r2 = MathRand();
+      g_vps_id = StringFormat("vps-%I64u-%d-%d", AccountInfoInteger(ACCOUNT_LOGIN), r1, r2);
+     }
+
    EventSetTimer(InpUpdateFreq);
-   Print("TelemetryExporter iniciado. Emitiendo a: ", InpDashboardUrl);
+   Print("TelemetryExporter iniciado. VPS ID=", g_vps_id, ". Emitiendo a: ", InpDashboardUrl);
    
    // Nombre único para la bandera de sincronización (basado en cuenta)
    global_var_name = StringFormat("qf_sync_%I64u", AccountInfoInteger(ACCOUNT_LOGIN));
@@ -408,7 +421,7 @@ void CheckAndSyncHistory()
             "\"active_mode\":\"SYNC\","
             "\"positions\":[]"
          "}]"
-      "}", AccountInfoString(ACCOUNT_SERVER), ts, AccountInfoInteger(ACCOUNT_LOGIN), AccountInfoString(ACCOUNT_COMPANY), 
+      "}", g_vps_id, ts, AccountInfoInteger(ACCOUNT_LOGIN), AccountInfoString(ACCOUNT_COMPANY), 
           AccountInfoInteger(ACCOUNT_LOGIN), AccountInfoString(ACCOUNT_SERVER), 
           AccountInfoString(ACCOUNT_NAME), running_balance, running_balance);
 
@@ -561,7 +574,7 @@ void SendTelemetry()
                                     "\"positions\":%s"
                                  "}]"
                                  "}",
-                                 AccountInfoString(ACCOUNT_SERVER), timestamp, account_id, broker, balance, equity, margin, free_margin, margin_level, drawdown_pct,
+                                 g_vps_id, timestamp, account_id, broker, balance, equity, margin, free_margin, margin_level, drawdown_pct,
                                  regime, active_mode, daily_pnl_usd, open_risk_pct, win_rate, profit_factor, kelly_fraction,
                                  n_trades_cycle, max_drawdown_pct, closed_trades_json, positions_json);
 

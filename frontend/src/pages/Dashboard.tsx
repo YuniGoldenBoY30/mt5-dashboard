@@ -106,7 +106,7 @@ export default function Dashboard() {
           <div className="space-y-3">
             {accounts.map((account) => (
               <AccountCard
-                key={account.id}
+                key={`${account.id}-${account.login}`}
                 account={account}
                 canClose={false}
                 onClosePosition={(id, ticket) => closeMutation.mutate({ accountId: id, ticket })}
