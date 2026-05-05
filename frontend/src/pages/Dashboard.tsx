@@ -20,7 +20,9 @@ export default function Dashboard() {
     const totalEquity = active.reduce((s, a) => s + (a.status_data?.equity ?? 0), 0)
     const totalBalance = active.reduce((s, a) => s + (a.status_data?.balance ?? 0), 0)
     const totalPnl = active.reduce((s, a) => s + (a.status_data?.daily_pnl_usd ?? 0), 0)
-    const maxDD = Math.max(...active.map((a) => a.status_data?.drawdown_pct ?? 0), 0)
+    // Máximo DD: validar que haya al menos una cuenta antes de hacer Math.max
+    const ddValues = active.map((a) => a.status_data?.drawdown_pct ?? 0).filter((dd) => dd >= 0)
+    const maxDD = ddValues.length > 0 ? Math.max(...ddValues) : 0
     const openPositions = active.reduce((s, a) => s + (a.status_data?.positions?.length ?? 0), 0)
     const pausedAccounts = active.filter((a) => a.status_data?.active_mode === 'PAUSE').length
     return { totalEquity, totalBalance, totalPnl, maxDD, openPositions, pausedAccounts, count: active.length }

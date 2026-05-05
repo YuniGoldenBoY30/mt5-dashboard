@@ -31,7 +31,10 @@ export default function TeamView() {
   const kpis = useMemo(() => {
     const totalEquity = active.reduce((s, a) => s + (a.status_data?.equity ?? 0), 0)
     const totalPnl = active.reduce((s, a) => s + (a.status_data?.daily_pnl_usd ?? 0), 0)
-    const maxDD = Math.max(...active.map((a) => a.status_data?.drawdown_pct ?? 0), 0)
+    // Máximo DD: validar que haya valores antes de hacer Math.max
+    const ddValues = active.map((a) => a.status_data?.drawdown_pct ?? 0).filter((dd) => dd >= 0)
+    const maxDD = ddValues.length > 0 ? Math.max(...ddValues) : 0
+    // Win rate promedio: filtrar cuentas que tengan win_rate definido
     const avgWR = active.filter((a) => a.status_data?.win_rate != null)
     const winRate = avgWR.length
       ? avgWR.reduce((s, a) => s + (a.status_data!.win_rate! * 100), 0) / avgWR.length

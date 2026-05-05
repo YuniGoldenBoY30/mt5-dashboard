@@ -141,7 +141,7 @@ export default function Analytics() {
                       <td className="py-1.5 px-3 text-right font-semibold text-white">
                         ${p.equity.toFixed(2)}
                       </td>
-                      <td className={`py-1.5 px-3 text-right font-medium ${p.drawdown_pct >= 10 ? 'text-yellow-400' : p.drawdown_pct >= 20 ? 'text-red-400' : 'text-green-400'}`}>
+                      <td className={`py-1.5 px-3 text-right font-medium ${p.drawdown_pct >= 20 ? 'text-red-400' : p.drawdown_pct >= 10 ? 'text-yellow-400' : 'text-green-400'}`}>
                         {fmtPct(p.drawdown_pct)}
                       </td>
                       <td className={`py-1.5 px-3 text-right font-semibold ${(p.daily_pnl_usd ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
