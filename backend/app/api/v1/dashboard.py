@@ -35,15 +35,36 @@ async def get_performance(
             sampled.append(rows[-1])
         rows = sampled
 
-    equity_curve = [
-        EquityPoint(
-            timestamp_utc=r.timestamp_utc, balance=r.balance, equity=r.equity,
-            drawdown_pct=r.drawdown_pct, daily_pnl_usd=r.daily_pnl_usd,
-            regime=r.regime, active_mode=r.active_mode
-        ) for r in rows
-    ]
+    # Normalización de curva:
+    # - balance: parte del balance inicial y se desplaza por cambios de balance (cierres)
+    # - equity: balance_global + flotante_actual
+    normalized_points = []
+    if rows:
+        baseline_balance = rows[0].balance
+        prev_raw_balance = rows[0].balance
+
+        for r in rows:
+            balance_delta = r.balance - prev_raw_balance
+            baseline_balance += balance_delta
+            floating_pnl = r.equity - r.balance
+            equity_display = baseline_balance + floating_pnl
+
+            normalized_points.append(
+                EquityPoint(
+                    timestamp_utc=r.timestamp_utc,
+                    balance=baseline_balance,
+                    equity=equity_display,
+                    drawdown_pct=r.drawdown_pct,
+                    daily_pnl_usd=r.daily_pnl_usd,
+                    regime=r.regime,
+                    active_mode=r.active_mode,
+                )
+            )
+            prev_raw_balance = r.balance
+
+    equity_curve = normalized_points
     
-    total_pnl = (rows[-1].equity - rows[0].equity) if len(rows) >= 2 else 0.0
+    total_pnl = (equity_curve[-1].equity - equity_curve[0].equity) if len(equity_curve) >= 2 else 0.0
     max_dd = max((r.drawdown_pct for r in rows), default=0.0)
     
     account = db.query(Account).filter(Account.login == login).first()

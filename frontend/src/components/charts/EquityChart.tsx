@@ -31,13 +31,18 @@ function formatTime(ts: string): string {
 export default function EquityChart({ data, height = 220, showBalance = true }: Props) {
   const chartData = useMemo(
     () =>
-      data.map((p) => ({
-        time: formatTime(p.timestamp_utc),
-        equity: Number(p.equity.toFixed(2)),
-        balance: Number(p.balance.toFixed(2)),
-        dd: Number(p.drawdown_pct.toFixed(2)),
-        mode: p.active_mode ?? 'NORMAL',
-      })),
+      data.map((p) => {
+        const balance = Number(p.balance.toFixed(2))
+        const equity = Number(p.equity.toFixed(2))
+        return {
+          time: formatTime(p.timestamp_utc),
+          equity,
+          balance,
+          floating: Number((equity - balance).toFixed(2)),
+          dd: Number(p.drawdown_pct.toFixed(2)),
+          mode: p.active_mode ?? 'NORMAL',
+        }
+      }),
     [data],
   )
 
@@ -49,11 +54,12 @@ export default function EquityChart({ data, height = 220, showBalance = true }: 
     )
   }
 
-  const [minEq, maxEq] = chartData.reduce(
-    ([mn, mx], d) => [Math.min(mn, d.equity), Math.max(mx, d.equity)],
+  const [minVal, maxVal] = chartData.reduce(
+    ([mn, mx], d) => [Math.min(mn, d.equity, d.balance), Math.max(mx, d.equity, d.balance)],
     [Infinity, -Infinity],
   )
-  const pad = (maxEq - minEq) * 0.05
+  const pad = (maxVal - minVal || 1) * 0.05
+  const initialBalance = chartData[0]?.balance
 
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -81,7 +87,7 @@ export default function EquityChart({ data, height = 220, showBalance = true }: 
           interval="preserveStartEnd"
         />
         <YAxis
-          domain={[minEq - pad, maxEq + pad]}
+          domain={[minVal - pad, maxVal + pad]}
           tick={{ fill: '#94a3b8', fontSize: 10 }}
           tickLine={false}
           axisLine={false}
@@ -97,11 +103,22 @@ export default function EquityChart({ data, height = 220, showBalance = true }: 
             fontSize: 12,
           }}
           labelStyle={{ color: '#94a3b8' }}
-          formatter={(value: number, name: string) => [
-            `$${value.toLocaleString()}`,
-            name === 'equity' ? 'Equity' : 'Balance',
-          ]}
+          formatter={(value: number, name: string) => {
+            if (name === 'equity') return [`$${value.toLocaleString()}`, 'Equity (incluye flotante)']
+            if (name === 'balance') return [`$${value.toLocaleString()}`, 'Balance global']
+            if (name === 'floating') return [`$${value.toLocaleString()}`, 'Flotante']
+            return [`$${value.toLocaleString()}`, name]
+          }}
         />
+
+        {initialBalance != null && (
+          <ReferenceLine
+            y={initialBalance}
+            stroke="#94a3b8"
+            strokeDasharray="4 4"
+            ifOverflow="extendDomain"
+          />
+        )}
 
         {showBalance && (
           <Area
