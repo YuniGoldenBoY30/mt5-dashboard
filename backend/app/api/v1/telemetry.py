@@ -1,4 +1,5 @@
 import asyncio
+from typing import List
 from fastapi import APIRouter, Depends, Request, HTTPException
 from sqlalchemy.orm import Session
 from app.core.config import settings
@@ -28,7 +29,6 @@ async def update_telemetry(
 
     updated_accounts = TelemetryService.process_telemetry(db, request_data)
 
-    
     # Alertas
     for acc in request_data.accounts:
         alerts = AlertService.check_and_create_alerts(db, acc)
@@ -51,3 +51,18 @@ async def update_telemetry(
         asyncio.create_task(manager.broadcast({"type": "accounts_update", "data": ws_data}))
 
     return {"status": "ok", "processed_accounts": len(updated_accounts)}
+
+@router.post("/telemetry/bulk", status_code=200)
+async def bulk_import_telemetry(
+    payloads: List[VpsTelemetryPayload],
+    db: Session = Depends(get_db),
+    token: str = Depends(verify_vps_token)
+):
+    """Importación masiva de estados históricos."""
+    total_processed = 0
+    for p in payloads:
+        TelemetryService.process_telemetry(db, p)
+        total_processed += len(p.accounts)
+    
+    db.commit()
+    return {"status": "bulk_ok", "records_processed": total_processed}

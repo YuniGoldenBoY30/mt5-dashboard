@@ -12,11 +12,14 @@
 input string   InpDashboardUrl = "https://trading.zenixtech.ai/api/v1/telemetry"; // URL del Dashboard Master
 input string   InpApiToken     = "snqAQ8OpesIP0p1Ur8Z-H0mk-M389qdg8c3dAX8D4OhMiXFi"; // VPS_SECRET_TOKEN (Bearer)
 input string   InpApiKey       = "ZjestbIjvZj9MLzvryprX8DwC5RSk_oYJx_0Dns_yDc9Mhuf"; // X_API_KEY (Firewall)
-input string   InpVpsId        = "vps-01";                                         // Identificador unico del VPS
+input string   InpVpsId        = "vps-01";                                         // Identificador unico del VPS (temporalmente no usado para deduplicación de .ex5; se mantiene para futura lógica)
 input int      InpUpdateFreq   = 2;                                                // Frecuencia de envio en segundos
 input int      InpStatsLookbackDays = 30;                                          // Ventana de historial para stats (días)
 input bool     InpUseHalfKelly = true;                                             // Kelly conservador (Half-Kelly)
 input int      InpClosedTradesLimit = 20;                                          // Máximo de trades cerrados a enviar
+
+bool        history_synced = false;
+string      global_var_name;
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -31,6 +34,10 @@ int OnInit()
      
    EventSetTimer(InpUpdateFreq);
    Print("TelemetryExporter iniciado. Emitiendo a: ", InpDashboardUrl);
+   
+   // Nombre único para la bandera de sincronización (basado en cuenta)
+   global_var_name = StringFormat("qf_sync_%I64u", AccountInfoInteger(ACCOUNT_LOGIN));
+   
    return(INIT_SUCCEEDED);
   }
 
@@ -329,7 +336,124 @@ string BuildClosedTradesJson(const int limit_count)
 //+------------------------------------------------------------------+
 void OnTimer()
   {
+   if(!history_synced)
+     {
+      CheckAndSyncHistory();
+     }
    SendTelemetry();
+  }
+
+//+------------------------------------------------------------------+
+//| Sincronización histórica automática                              |
+//+------------------------------------------------------------------+
+void CheckAndSyncHistory()
+  {
+   // 1. Revisar si ya sincronizamos (usando GlobalVariable de MT5)
+   if(GlobalVariableCheck(global_var_name))
+     {
+      history_synced = true;
+      return;
+     }
+
+   Print("TELEMETRY: Iniciando sincronización histórica automática...");
+
+   if(!HistorySelect(0, TimeCurrent())) return;
+   
+   int total_deals = HistoryDealsTotal();
+   if(total_deals == 0)
+     {
+      Print("TELEMETRY: No hay deals para sincronizar.");
+      GlobalVariableSet(global_var_name, 1);
+      history_synced = true;
+      return;
+     }
+
+   double running_balance = 0;
+   string bulk_json = "[";
+   int count = 0;
+   int sent_count = 0;
+
+   for(int i=0; i<total_deals; i++)
+     {
+      ulong ticket = HistoryDealGetTicket(i);
+      if(ticket <= 0) continue;
+
+      double profit = HistoryDealGetDouble(ticket, DEAL_PROFIT);
+      double comm   = HistoryDealGetDouble(ticket, DEAL_COMMISSION);
+      double swap   = HistoryDealGetDouble(ticket, DEAL_SWAP);
+      running_balance += (profit + comm + swap);
+
+      datetime time_deal = (datetime)HistoryDealGetInteger(ticket, DEAL_TIME);
+      string ts = TimeToString(time_deal, TIME_DATE|TIME_MINUTES|TIME_SECONDS);
+      StringReplace(ts, ".", "-");
+      StringReplace(ts, " ", "T");
+      ts += "Z";
+
+      if(count > 0) bulk_json += ",";
+      
+      bulk_json += StringFormat("{"
+         "\"vps_id\":\"mq5_sync\","
+         "\"timestamp_utc\":\"%s\","
+         "\"accounts\":[{"
+            "\"account_id\":%I64u,"
+            "\"broker\":\"%s\","
+            "\"login\":\"%I64u\","
+            "\"server\":\"%s\","
+            "\"name\":\"%s\","
+            "\"balance\":%.2f,"
+            "\"equity\":%.2f,"
+            "\"margin\":0.0,"
+            "\"drawdown_pct\":0.0,"
+            "\"regime\":\"HISTORICAL\","
+            "\"active_mode\":\"SYNC\","
+            "\"positions\":[]"
+         "}]"
+      "}", ts, AccountInfoInteger(ACCOUNT_LOGIN), AccountInfoString(ACCOUNT_COMPANY), 
+          AccountInfoInteger(ACCOUNT_LOGIN), AccountInfoString(ACCOUNT_SERVER), 
+          AccountInfoString(ACCOUNT_NAME), running_balance, running_balance);
+
+      count++;
+
+      // Enviar en bloques de 20 para no saturar WebRequest
+      if(count >= 20 || i == total_deals - 1)
+        {
+         bulk_json += "]";
+         if(SendBulkToDashboard(bulk_json))
+           {
+            sent_count += count;
+           }
+         bulk_json = "[";
+         count = 0;
+        }
+     }
+
+   PrintFormat("TELEMETRY: Sincronización completada. %d registros procesados.", sent_count);
+   GlobalVariableSet(global_var_name, 1);
+   history_synced = true;
+  }
+
+//+------------------------------------------------------------------+
+//| Enviar bloque al endpoint /bulk                                  |
+//+------------------------------------------------------------------+
+bool SendBulkToDashboard(string json_body)
+  {
+   char data[];
+   char result[];
+   string result_headers;
+   StringToCharArray(json_body, data, 0, WHOLE_ARRAY, CP_UTF8);
+   
+   string url = StringFormat("%s/api/v1/telemetry/bulk", InpDashboardUrl);
+   string headers = StringFormat("Content-Type: application/json\r\n"
+                                 "X-API-KEY: %s\r\n"
+                                 "Authorization: Bearer %s\r\n", 
+                                 InpApiKey, InpAuthToken);
+
+   int res = WebRequest("POST", url, headers, 10000, data, result, result_headers);
+   
+   if(res >= 200 && res < 300) return true;
+   
+   PrintFormat("TELEMETRY BULK ERROR: %d. Resp: %s", res, CharArrayToString(result));
+   return false;
   }
 
 //+------------------------------------------------------------------+
@@ -413,7 +537,7 @@ void SendTelemetry()
    timestamp += "Z"; // Formato ISO 8601 UTC
    
    string payload = StringFormat("{"
-                                 "\"vps_id\":\"%s\","
+                                 // "\"vps_id\":\"%s\","
                                  "\"timestamp_utc\":\"%s\","
                                  "\"accounts\":[{"
                                     "\"account_id\":%I64u,"
@@ -437,7 +561,7 @@ void SendTelemetry()
                                     "\"positions\":%s"
                                  "}]"
                                  "}",
-                                 InpVpsId, timestamp, account_id, broker, balance, equity, margin, free_margin, margin_level, drawdown_pct,
+                                 /* InpVpsId, */ timestamp, account_id, broker, balance, equity, margin, free_margin, margin_level, drawdown_pct,
                                  regime, active_mode, daily_pnl_usd, open_risk_pct, win_rate, profit_factor, kelly_fraction,
                                  n_trades_cycle, max_drawdown_pct, closed_trades_json, positions_json);
 
