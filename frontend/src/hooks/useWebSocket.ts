@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { createAccountsWS } from '../services/api'
+import { createAccountsWS, apiGetAccounts } from '../services/api'
 import type { Account, WebSocketMessage } from '../types'
 
 type WSStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
@@ -16,13 +16,18 @@ export function useAccountsWebSocket() {
     if (wsRef.current?.readyState === WebSocket.OPEN) return
 
     setStatus('connecting')
+    
+    // 1. Cargar estado inicial por REST para evitar dashboard vacío
+    apiGetAccounts()
+      .then(data => setAccounts(data))
+      .catch(err => console.error("Error cargando cuentas iniciales:", err))
+
     const ws = createAccountsWS()
     wsRef.current = ws
 
     ws.onopen = () => {
       setStatus('connected')
       retryCount.current = 0
-      // Mantener conexión con pings periódicos
       const ping = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) ws.send('ping')
         else clearInterval(ping)
@@ -33,7 +38,16 @@ export function useAccountsWebSocket() {
       try {
         const msg: WebSocketMessage = JSON.parse(evt.data)
         if (msg.type === 'accounts_update' && msg.data) {
-          setAccounts(msg.data)
+          // Capturamos los datos en una constante para asegurar el tipo en TypeScript
+          const updatedData = msg.data;
+          
+          setAccounts(prev => {
+            const newMap = new Map(prev.map(a => [a.id, a]))
+            updatedData.forEach(updatedAcc => {
+              newMap.set(updatedAcc.id, updatedAcc)
+            })
+            return Array.from(newMap.values())
+          })
         }
       } catch {
         // ignore malformed messages
