@@ -30,7 +30,7 @@ async def update_telemetry(
 
     
     # Alertas
-    for acc in request.accounts:
+    for acc in request_data.accounts:
         alerts = AlertService.check_and_create_alerts(db, acc)
         for alert in alerts:
             asyncio.create_task(send_alert_email(alert))
