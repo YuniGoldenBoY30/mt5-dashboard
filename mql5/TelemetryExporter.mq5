@@ -392,7 +392,7 @@ void CheckAndSyncHistory()
       if(count > 0) bulk_json += ",";
       
       bulk_json += StringFormat("{"
-         "\"vps_id\":\"mq5_sync\","
+         "\"vps_id\":\"%s\","
          "\"timestamp_utc\":\"%s\","
          "\"accounts\":[{"
             "\"account_id\":%I64u,"
@@ -408,7 +408,7 @@ void CheckAndSyncHistory()
             "\"active_mode\":\"SYNC\","
             "\"positions\":[]"
          "}]"
-      "}", ts, AccountInfoInteger(ACCOUNT_LOGIN), AccountInfoString(ACCOUNT_COMPANY), 
+      "}", AccountInfoString(ACCOUNT_SERVER), ts, AccountInfoInteger(ACCOUNT_LOGIN), AccountInfoString(ACCOUNT_COMPANY), 
           AccountInfoInteger(ACCOUNT_LOGIN), AccountInfoString(ACCOUNT_SERVER), 
           AccountInfoString(ACCOUNT_NAME), running_balance, running_balance);
 
@@ -446,7 +446,7 @@ bool SendBulkToDashboard(string json_body)
    string headers = StringFormat("Content-Type: application/json\r\n"
                                  "X-API-KEY: %s\r\n"
                                  "Authorization: Bearer %s\r\n", 
-                                 InpApiKey, InpAuthToken);
+                                 InpApiKey, InpApiToken);
 
    int res = WebRequest("POST", url, headers, 10000, data, result, result_headers);
    
@@ -537,7 +537,7 @@ void SendTelemetry()
    timestamp += "Z"; // Formato ISO 8601 UTC
    
    string payload = StringFormat("{"
-                                 // "\"vps_id\":\"%s\","
+                                 "\"vps_id\":\"%s\","
                                  "\"timestamp_utc\":\"%s\","
                                  "\"accounts\":[{"
                                     "\"account_id\":%I64u,"
@@ -561,7 +561,7 @@ void SendTelemetry()
                                     "\"positions\":%s"
                                  "}]"
                                  "}",
-                                 /* InpVpsId, */ timestamp, account_id, broker, balance, equity, margin, free_margin, margin_level, drawdown_pct,
+                                 AccountInfoString(ACCOUNT_SERVER), timestamp, account_id, broker, balance, equity, margin, free_margin, margin_level, drawdown_pct,
                                  regime, active_mode, daily_pnl_usd, open_risk_pct, win_rate, profit_factor, kelly_fraction,
                                  n_trades_cycle, max_drawdown_pct, closed_trades_json, positions_json);
 
