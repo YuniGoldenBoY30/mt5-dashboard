@@ -93,13 +93,13 @@ export default function Analytics() {
       </div>
 
       {/* Selector cuenta + rango */}
-      <div className="flex flex-wrap gap-3 items-end bg-slate-800/40 border border-white/10 rounded-xl p-4">
+      <div className="flex flex-wrap gap-4 items-end bg-slate-800/40 border border-white/[0.06] rounded-2xl px-5 py-5 sm:px-6">
         <div>
           <label className="block text-xs text-slate-400 mb-1">Cuenta</label>
           <select
             value={selectedLogin}
             onChange={(e) => setSelectedLogin(e.target.value)}
-            className="bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-sm text-white"
+            className="bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-white"
           >
             {activeAccounts.map((a) => (
               <option key={a.id} value={a.login}>
@@ -111,12 +111,12 @@ export default function Analytics() {
 
         <div>
           <label className="block text-xs text-slate-400 mb-1">Rango</label>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-2">
             {(['today', '7d', '30d', '90d', 'all'] as RangeOption[]).map((r) => (
               <button
                 key={r}
                 onClick={() => setRange(r)}
-                className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                className={`px-3.5 py-2 rounded-lg text-xs font-medium transition-colors ${
                   range === r
                     ? 'bg-cyan-500 text-white'
                     : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
@@ -137,7 +137,7 @@ export default function Analytics() {
         <>
           {/* Métricas resumen */}
           {metrics && (
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
               <StatCard label="CAGR" value={`${metrics.cagr.toFixed(2)}%`} icon={<TrendingUp className="w-4 h-4" />} />
               <StatCard label="Sharpe" value={metrics.sharpe.toFixed(2)} />
               <StatCard label="Sortino" value={metrics.sortino.toFixed(2)} />
@@ -154,8 +154,8 @@ export default function Analytics() {
           />
 
           {/* Tabla de snapshots recientes */}
-          <div className="rounded-xl border border-white/10 bg-slate-800/40 overflow-hidden">
-            <div className="px-4 py-3 border-b border-white/10">
+          <div className="rounded-2xl border border-white/[0.06] bg-slate-800/40 overflow-hidden">
+            <div className="px-5 py-4 sm:px-6 border-b border-white/[0.06]">
               <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
                 Snapshots recientes
               </h2>
@@ -214,8 +214,8 @@ export default function Analytics() {
           </div>
 
           {/* Tabla de Historial de Operaciones */}
-          <div className="rounded-xl border border-white/10 bg-slate-800/40 overflow-hidden">
-            <div className="px-4 py-3 border-b border-white/10 flex justify-between items-center">
+          <div className="rounded-2xl border border-white/[0.06] bg-slate-800/40 overflow-hidden">
+            <div className="px-5 py-4 sm:px-6 border-b border-white/[0.06] flex justify-between items-center gap-3">
               <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
                 Historial de Operaciones (Persistente)
               </h2>

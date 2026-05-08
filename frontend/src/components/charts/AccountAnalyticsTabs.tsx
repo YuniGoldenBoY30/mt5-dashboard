@@ -400,11 +400,11 @@ export default function AccountAnalyticsTabs({
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-slate-800/40 overflow-hidden">
-      <div className="border-b border-white/10 px-4 py-3">
+    <div className="rounded-2xl border border-white/[0.06] bg-slate-800/40 overflow-hidden">
+      <div className="border-b border-white/[0.06] px-5 py-4 sm:px-6">
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm font-semibold text-slate-300">{title}</div>
-          <div className="flex flex-nowrap overflow-x-auto gap-8">
+          <div className="flex flex-nowrap overflow-x-auto gap-6 sm:gap-8">
             {TAB_OPTIONS.map((tab) => (
               <button
                 key={tab.key}
@@ -421,7 +421,7 @@ export default function AccountAnalyticsTabs({
           </div>
         </div>
       </div>
-      <div className="pt-2">
+      <div className="px-4 pb-4 pt-3 sm:px-6 sm:pb-6">
         {renderActiveTab()}
       </div>
     </div>
