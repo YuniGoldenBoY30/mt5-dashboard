@@ -45,23 +45,12 @@ function formatDay(ts: string): string {
 }
 
 function StatPill({ value, label, tone = 'text-white' }: { value: string; label: string; tone?: string }) {
-  const dotClass =
-    tone.includes('green') ? 'bg-green-400' :
-    tone.includes('red') ? 'bg-red-400' :
-    tone.includes('orange') ? 'bg-orange-400' :
-    tone.includes('blue') ? 'bg-blue-400' :
-    tone.includes('cyan') ? 'bg-cyan-400' :
-    tone.includes('yellow') ? 'bg-yellow-400' :
-    tone.includes('purple') ? 'bg-purple-400' :
-    'bg-slate-300'
-
   return (
-    <div className="min-w-[92px]">
-      <div className={`text-2xl font-semibold ${tone}`}>{value}</div>
-      <div className="mt-1 flex items-center gap-1 text-sm text-slate-400">
-        <span className={`inline-block h-2 w-2 rounded-full ${dotClass}`} />
-        <span>{label}</span>
+    <div>
+      <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+        <div className={`w-1.5 h-1.5 rounded-full ${tone.replace('text-', 'bg-')}`} /> {label}
       </div>
+      <div className={`text-2xl font-bold ${tone === 'text-blue-400' || tone === 'text-green-400' ? 'text-white' : tone}`}>{value}</div>
     </div>
   )
 }
@@ -180,22 +169,28 @@ export default function AccountAnalyticsTabs({
     return { avgDailyPnl, maxDailyLoss, maxDrawdown }
   }, [curve])
 
-  const renderSummary = () => (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-6">
-        <StatPill value={fmtUSD(summaryStats.currentBalance)} label="Balance" tone="text-slate-100" />
-        <StatPill value={fmtUSD(summaryStats.currentEquity)} label="Equity" tone="text-slate-100" />
-        <StatPill value={fmtPct(summaryStats.growthPct)} label="Growth" tone={summaryStats.growthPct >= 0 ? 'text-green-400' : 'text-red-400'} />
-        <StatPill value={fmtPct(summaryStats.maxDrawdown)} label="Drawdown" tone="text-orange-400" />
+  const renderSummary = () => {
+    if (!curve.length) return <div className="text-slate-500 text-sm py-10 text-center">Sin datos suficientes</div>
+
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatPill value={fmtUSD(summaryStats.currentBalance)} label="Balance" tone="text-blue-400" />
+          <StatPill value={fmtUSD(summaryStats.currentEquity)} label="Equity" tone="text-green-400" />
+          <StatPill value={(summaryStats.growthPct > 0 ? '+' : '') + fmtPct(summaryStats.growthPct)} label="Growth" tone={summaryStats.growthPct >= 0 ? 'text-green-400' : 'text-red-400'} />
+          <StatPill value={fmtPct(summaryStats.maxDrawdown)} label="Drawdown" tone="text-yellow-400" />
+        </div>
+        <div className="pt-2">
+          <AccountEvolutionChart
+            data={curve}
+            initialBalance={safeInitial}
+            height={320}
+            title=""
+          />
+        </div>
       </div>
-      <AccountEvolutionChart
-        data={curve}
-        initialBalance={safeInitial}
-        height={300}
-        title="Summary"
-      />
-    </div>
-  )
+    )
+  }
 
   const renderProfitLoss = () => {
     const grossProfit = trades.filter((t) => t.profit_net > 0).reduce((sum, t) => sum + t.profit_net, 0)
