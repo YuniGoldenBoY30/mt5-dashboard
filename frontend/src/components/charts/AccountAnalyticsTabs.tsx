@@ -44,6 +44,24 @@ function formatDay(ts: string): string {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
 }
 
+function getChartLayout(count: number, mode: MetricMode) {
+  const isDense = count > 18
+  const isVeryDense = count > 32
+
+  return {
+    margin: {
+      top: 18,
+      right: mode === 'money' ? 18 : 12,
+      left: mode === 'money' ? 10 : 6,
+      bottom: 14,
+    },
+    yAxisWidth: mode === 'money' ? 64 : 40,
+    minTickGap: isVeryDense ? 56 : isDense ? 40 : 24,
+    maxBarSize: mode === 'money' ? (isVeryDense ? 18 : isDense ? 24 : 34) : (isVeryDense ? 14 : isDense ? 18 : 24),
+    barCategoryGap: isVeryDense ? '28%' : isDense ? '22%' : '16%',
+  }
+}
+
 function StatPill({ value, label, tone = 'text-white' }: { value: string; label: string; tone?: string }) {
   return (
     <div>
@@ -191,6 +209,7 @@ export default function AccountAnalyticsTabs({
     const grossProfit = trades.filter((t) => t.profit_net > 0).reduce((sum, t) => sum + t.profit_net, 0)
     const grossLoss = trades.filter((t) => t.profit_net < 0).reduce((sum, t) => sum + t.profit_net, 0)
     const avgTrade = trades.length ? (grossProfit + grossLoss) / trades.length : 0
+    const layout = getChartLayout(profitLossData.length, metricMode)
 
     return (
       <div className="space-y-4">
@@ -215,10 +234,16 @@ export default function AccountAnalyticsTabs({
           </div>
         </div>
         <ResponsiveContainer width="100%" height={300}>
-          <ComposedChart data={profitLossData} margin={{ top: 20, right: 30, left: 30, bottom: 20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-            <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={28} />
-            <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} width={45} />
+          <ComposedChart data={profitLossData} margin={layout.margin} barCategoryGap={layout.barCategoryGap}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+            <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={layout.minTickGap} />
+            <YAxis
+              tick={{ fill: '#94a3b8', fontSize: 10 }}
+              tickLine={false}
+              axisLine={false}
+              width={layout.yAxisWidth}
+              tickFormatter={(v) => metricMode === 'money' ? fmtUSD(v) : String(v)}
+            />
             <Tooltip
               contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }}
               formatter={(value: number, name: string) => {
@@ -229,12 +254,12 @@ export default function AccountAnalyticsTabs({
             <Legend wrapperStyle={{ fontSize: '12px' }} />
             {metricMode === 'money' ? (
               <>
-                <Bar dataKey="positive" name="Ganancia" fill="#65a30d" />
-                <Bar dataKey="negative" name="Pérdida" fill="#ea580c" />
+                <Bar dataKey="positive" name="Ganancia" fill="#65a30d" radius={[4, 4, 0, 0]} maxBarSize={layout.maxBarSize} />
+                <Bar dataKey="negative" name="Pérdida" fill="#ea580c" radius={[4, 4, 0, 0]} maxBarSize={layout.maxBarSize} />
                 <Line type="monotone" dataKey="cumulative" name="Acumulado" stroke="#64748b" dot={false} />
               </>
             ) : (
-              <Bar dataKey="deals" name="Deals" fill="#60a5fa" />
+              <Bar dataKey="deals" name="Deals" fill="#60a5fa" radius={[4, 4, 0, 0]} maxBarSize={layout.maxBarSize} />
             )}
           </ComposedChart>
         </ResponsiveContainer>
@@ -245,6 +270,7 @@ export default function AccountAnalyticsTabs({
   const renderLongShort = () => {
     const longs = trades.filter((t) => t.type === 'BUY')
     const shorts = trades.filter((t) => t.type === 'SELL')
+    const layout = getChartLayout(longShortData.length, metricMode)
 
     return (
       <div className="space-y-4">
@@ -253,10 +279,16 @@ export default function AccountAnalyticsTabs({
           <StatPill value={`${shorts.length} (${trades.length ? ((shorts.length / trades.length) * 100).toFixed(1) : '0.0'}%)`} label="Short" tone="text-orange-400" />
         </div>
         <ResponsiveContainer width="100%" height={300}>
-          <ComposedChart data={longShortData} margin={{ top: 20, right: 30, left: 30, bottom: 20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-            <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={28} />
-            <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} width={45} />
+          <ComposedChart data={longShortData} margin={layout.margin} barCategoryGap={layout.barCategoryGap}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+            <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={layout.minTickGap} />
+            <YAxis
+              tick={{ fill: '#94a3b8', fontSize: 10 }}
+              tickLine={false}
+              axisLine={false}
+              width={layout.yAxisWidth}
+              tickFormatter={(v) => metricMode === 'money' ? fmtUSD(v) : String(Math.abs(v))}
+            />
             <Tooltip
               contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }}
               formatter={(value: number, name: string) => {
@@ -272,13 +304,13 @@ export default function AccountAnalyticsTabs({
             <Legend wrapperStyle={{ fontSize: '12px' }} />
             {metricMode === 'money' ? (
               <>
-                <Bar dataKey="longMoney" name="Long" fill="#60a5fa" />
-                <Bar dataKey="shortMoney" name="Short" fill="#f97316" />
+                <Bar dataKey="longMoney" name="Long" fill="#60a5fa" radius={[4, 4, 0, 0]} maxBarSize={layout.maxBarSize} />
+                <Bar dataKey="shortMoney" name="Short" fill="#f97316" radius={[4, 4, 0, 0]} maxBarSize={layout.maxBarSize} />
               </>
             ) : (
               <>
-                <Bar dataKey="longDeals" name="Long" fill="#60a5fa" />
-                <Bar dataKey="shortDealsNegative" name="Short" fill="#f97316" />
+                <Bar dataKey="longDeals" name="Long" fill="#60a5fa" radius={[4, 4, 0, 0]} maxBarSize={layout.maxBarSize} />
+                <Bar dataKey="shortDealsNegative" name="Short" fill="#f97316" radius={[4, 4, 0, 0]} maxBarSize={layout.maxBarSize} />
               </>
             )}
           </ComposedChart>
@@ -314,10 +346,16 @@ export default function AccountAnalyticsTabs({
         </div>
       </div>
       <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={symbolSeries.series} margin={{ top: 20, right: 30, left: 30, bottom: 20 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-          <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={28} />
-          <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} width={45} />
+        <LineChart data={symbolSeries.series} margin={getChartLayout(symbolSeries.series.length, metricMode).margin}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+          <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={getChartLayout(symbolSeries.series.length, metricMode).minTickGap} />
+          <YAxis
+            tick={{ fill: '#94a3b8', fontSize: 10 }}
+            tickLine={false}
+            axisLine={false}
+            width={getChartLayout(symbolSeries.series.length, metricMode).yAxisWidth}
+            tickFormatter={(v) => metricMode === 'money' ? fmtUSD(v) : String(v)}
+          />
           <Tooltip
             contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }}
             formatter={(value: number, name: string) => [metricMode === 'money' ? fmtUSD(value) : value, name.replace('_money', '').replace('_deals', '')]}
@@ -354,16 +392,16 @@ export default function AccountAnalyticsTabs({
         <div className="rounded-lg border border-white/5 bg-slate-900/30 p-3">
           <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">P&L Diario</div>
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={curve.map((p) => ({ time: formatDay(p.timestamp_utc), pnl: p.daily_pnl_usd ?? 0 }))} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
+            <AreaChart data={curve.map((p) => ({ time: formatDay(p.timestamp_utc), pnl: p.daily_pnl_usd ?? 0 }))} margin={{ top: 18, right: 16, left: 8, bottom: 12 }}>
               <defs>
                 <linearGradient id="riskPnl" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.35} />
                   <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-              <XAxis dataKey="time" tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={28} />
-              <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+              <XAxis dataKey="time" tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={36} />
+              <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => fmtUSD(v)} />
               <Tooltip
                 contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }}
                 formatter={(value: number) => [fmtUSD(value), 'P&L diario']}

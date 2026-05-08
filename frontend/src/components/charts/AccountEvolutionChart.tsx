@@ -115,7 +115,7 @@ export default function AccountEvolutionChart({
   const pad = Math.max(range * 0.05, mode === 'absolute' ? 25 : 0.5)
   const domain: [number, number] = [Math.max(0, minVal - pad), maxVal + pad]
   const containerClass = compact ? '' : ''
-  const chartMargin = compact ? { top: 4, right: 8, left: 4, bottom: 0 } : { top: 20, right: 20, left: 20, bottom: 20 }
+  const chartMargin = compact ? { top: 6, right: 10, left: 6, bottom: 2 } : { top: 24, right: 28, left: 18, bottom: 28 }
 
   const currentPoint = chartData[chartData.length - 1]
   const currentBalanceAbs = currentPoint.balanceAbs as number
@@ -134,7 +134,7 @@ export default function AccountEvolutionChart({
   return (
     <div className={containerClass}>
       {!compact && (
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3 px-2">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-4 px-2 sm:px-3">
           <div className="flex flex-wrap gap-8">
             <div>
               <div className="text-lg font-bold text-slate-200 tracking-tight">{mode === 'absolute' ? `$${formatCurrency(currentBalanceAbs)}` : `${formatPercent(currentPoint.balancePct as number)}%`}</div>
@@ -164,20 +164,20 @@ export default function AccountEvolutionChart({
             </div>
           </div>
           
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {allowModeToggle && (
-              <div className="flex rounded bg-slate-800 p-0.5 text-xs">
+              <div className="flex rounded-lg bg-slate-800/80 p-0.5 text-xs">
                 <button
                   type="button"
                   onClick={() => setMode('absolute')}
-                  className={`rounded px-3 py-1 transition-colors ${mode === 'absolute' ? 'bg-[#60a5fa] text-white font-medium shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                  className={`rounded-md px-3 py-1.5 transition-colors ${mode === 'absolute' ? 'bg-[#60a5fa] text-white font-medium shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
                 >
                   Balance
                 </button>
                 <button
                   type="button"
                   onClick={() => setMode('percent')}
-                  className={`rounded px-3 py-1 transition-colors ${mode === 'percent' ? 'bg-[#60a5fa] text-white font-medium shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                  className={`rounded-md px-3 py-1.5 transition-colors ${mode === 'percent' ? 'bg-[#60a5fa] text-white font-medium shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
                 >
                   Growth
                 </button>
@@ -195,14 +195,15 @@ export default function AccountEvolutionChart({
             tick={{ fill: '#94a3b8', fontSize: compact ? 9 : 10 }}
             tickLine={false}
             axisLine={false}
-            minTickGap={40}
+            minTickGap={48}
+            padding={{ left: 10, right: 10 }}
           />
           <YAxis
             domain={mode === 'absolute' ? ['dataMin - 100', 'dataMax + 100'] : ['auto', 'auto']}
             tick={{ fill: '#94a3b8', fontSize: compact ? 9 : 10 }}
             tickLine={false}
             axisLine={false}
-            width={compact ? 45 : 55}
+            width={compact ? 50 : 68}
             tickFormatter={yAxisFormatter}
             orientation="right"
           />
@@ -243,7 +244,7 @@ export default function AccountEvolutionChart({
           {allowZoom && !compact && (
             <Brush
               dataKey="time"
-              height={20}
+              height={24}
               stroke="#0f172a"
               fill="#1e293b"
               travellerWidth={8}
