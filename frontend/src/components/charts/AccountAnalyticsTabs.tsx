@@ -174,12 +174,7 @@ export default function AccountAnalyticsTabs({
 
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatPill value={fmtUSD(summaryStats.currentBalance)} label="Balance" tone="text-blue-400" />
-          <StatPill value={fmtUSD(summaryStats.currentEquity)} label="Equity" tone="text-green-400" />
-          <StatPill value={(summaryStats.growthPct > 0 ? '+' : '') + fmtPct(summaryStats.growthPct)} label="Growth" tone={summaryStats.growthPct >= 0 ? 'text-green-400' : 'text-red-400'} />
-          <StatPill value={fmtPct(summaryStats.maxDrawdown)} label="Drawdown" tone="text-yellow-400" />
-        </div>
+        {/* StatPills eliminados para evitar redundancia visual con la cabecera de la gráfica */}
         <div className="pt-2 px-1 sm:px-2 lg:px-3 pb-2">
           <AccountEvolutionChart
             data={curve}

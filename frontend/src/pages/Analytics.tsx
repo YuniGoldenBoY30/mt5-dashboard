@@ -146,14 +146,12 @@ export default function Analytics() {
             </div>
           )}
 
-          <div className="bg-[#111827]/40 border border-white/[0.04] rounded-2xl p-6 backdrop-blur-sm">
-            <AccountAnalyticsTabs
-              curve={filteredCurve}
-              trades={filteredTrades}
-              initialBalance={selectedAccountInfo?.status_data?.initial_balance}
-              title={`Analytics — ${selectedLogin}`}
-            />
-          </div>
+          <AccountAnalyticsTabs
+            curve={filteredCurve}
+            trades={filteredTrades}
+            initialBalance={selectedAccountInfo?.status_data?.initial_balance}
+            title={`Analytics — ${selectedLogin}`}
+          />
 
           {/* Tabla de snapshots recientes */}
           <div className="rounded-xl border border-white/10 bg-slate-800/40 overflow-hidden">
