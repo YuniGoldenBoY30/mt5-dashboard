@@ -91,17 +91,25 @@ export default function MT5BalanceChart({ balanceData, initialBalance, height = 
   return (
     <div className="w-full">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3 px-2">
-        <div className="flex gap-8">
+        <div className="flex flex-wrap gap-8">
           <div>
-            <div className="text-lg font-bold text-slate-200 tracking-tight">{currentBalanceAbs.toFixed(2)}</div>
-            <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
-              <div className="w-2 h-2 rounded-full bg-[#60a5fa]" /> Balance
+            <div className="text-lg font-bold text-slate-200 tracking-tight">{mode === 'absolute' ? `$${formatCurrency(currentBalanceAbs)}` : `${formatPercent(currentPoint.balancePct as number)}%`}</div>
+            <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5 uppercase tracking-wider font-semibold">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#60a5fa]" /> Balance
             </div>
           </div>
           <div>
-            <div className="text-lg font-bold text-slate-200 tracking-tight">{currentEquityAbs.toFixed(2)}</div>
-            <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
-              <div className="w-2 h-2 rounded-full bg-[#c084fc]" /> Equity
+            <div className="text-lg font-bold text-slate-200 tracking-tight">{mode === 'absolute' ? `$${formatCurrency(currentEquityAbs)}` : `${formatPercent(currentPoint.equityPct as number)}%`}</div>
+            <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5 uppercase tracking-wider font-semibold">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#c084fc]" /> Equity
+            </div>
+          </div>
+          <div>
+            <div className={`text-lg font-bold tracking-tight ${(currentPoint.equityPct as number) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {(currentPoint.equityPct as number) > 0 ? '+' : ''}{formatPercent(currentPoint.equityPct as number)}%
+            </div>
+            <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5 uppercase tracking-wider font-semibold">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-400" /> Growth
             </div>
           </div>
         </div>

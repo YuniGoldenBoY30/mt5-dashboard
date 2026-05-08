@@ -31,81 +31,123 @@ async def get_account_trades(
 async def get_accounts(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return db.query(Account).filter(Account.is_active == True).all()
 
+def build_historical_curve(db: Session, login: str, limit: int, sampling_minutes: Optional[int] = None) -> List[EquityPoint]:
+    account = db.query(Account).filter(Account.login == login).first()
+    initial_balance = account.status_data.get("initial_balance", 0.0) if account and account.status_data else 0.0
+
+    trades = db.query(ClosedTrade).filter(ClosedTrade.account_login == login).order_by(ClosedTrade.close_time_utc.asc()).all()
+    telemetry_rows = db.query(TelemetryHistory).filter(TelemetryHistory.account_login == login).order_by(TelemetryHistory.timestamp_utc.asc()).all()
+
+    first_telemetry_ts = telemetry_rows[0].timestamp_utc if telemetry_rows else None
+
+    points = []
+    import datetime
+
+    # Punto inicial
+    if initial_balance > 0 and (trades or telemetry_rows):
+        start_ts = trades[0].close_time_utc if trades else telemetry_rows[0].timestamp_utc
+        start_ts = start_ts - datetime.timedelta(hours=1)
+        points.append(
+            EquityPoint(
+                timestamp_utc=start_ts,
+                balance=initial_balance,
+                equity=initial_balance,
+                drawdown_pct=0.0,
+                daily_pnl_usd=0.0,
+                regime="HISTORICAL",
+                active_mode="UNKNOWN"
+            )
+        )
+
+    current_balance = initial_balance
+
+    # Curva basada en trades (cerrados antes de que la telemetria iniciara)
+    for t in trades:
+        # Se ignora si ya habia telemetria, la telemetria tiene precedencia
+        if first_telemetry_ts and t.close_time_utc >= first_telemetry_ts:
+            break
+        current_balance += t.profit_net
+        points.append(
+            EquityPoint(
+                timestamp_utc=t.close_time_utc,
+                balance=current_balance,
+                equity=current_balance,
+                drawdown_pct=0.0,
+                daily_pnl_usd=0.0,
+                regime="HISTORICAL",
+                active_mode="UNKNOWN"
+            )
+        )
+
+    # Anexar curva en vivo de telemetria
+    for r in telemetry_rows:
+        points.append(
+            EquityPoint(
+                timestamp_utc=r.timestamp_utc,
+                balance=r.balance,
+                equity=r.equity,
+                drawdown_pct=r.drawdown_pct,
+                daily_pnl_usd=r.daily_pnl_usd,
+                regime=r.regime,
+                active_mode=r.active_mode
+            )
+        )
+
+    # Downsampling si es necesario para optimizar renderizado frontend
+    if sampling_minutes and len(points) > 50:
+        sampled = [points[0]]
+        last_ts = points[0].timestamp_utc
+        for p in points[1:]:
+            if (p.timestamp_utc - last_ts).total_seconds() >= (sampling_minutes * 60):
+                sampled.append(p)
+                last_ts = p.timestamp_utc
+        if points[-1] not in sampled:
+            sampled.append(points[-1])
+        points = sampled
+
+    # Aplicar limite tomando los mas recientes, pero siempre conservando el punto cero si es posible
+    if limit and len(points) > limit:
+        # Si queremos mantener el inicio, conservamos el punto 0 y tomamos los limit-1 más recientes
+        p0 = points[0]
+        points = points[-(limit-1):]
+        points.insert(0, p0)
+
+    return points
+
+
 @router.get("/performance/{login}", response_model=PerformanceSummary)
 async def get_performance(
     login: str, limit: int = 1000, sampling_minutes: Optional[int] = None,
     db: Session = Depends(get_db), user: User = Depends(get_current_user)
 ):
-    query = db.query(TelemetryHistory).filter(TelemetryHistory.account_login == login)
-    rows = query.order_by(TelemetryHistory.timestamp_utc.desc()).limit(limit).all()
-    rows = list(reversed(rows))
-
-    if sampling_minutes and len(rows) > 50:
-        sampled = [rows[0]]
-        last_ts = rows[0].timestamp_utc
-        for r in rows[1:]:
-            if (r.timestamp_utc - last_ts).total_seconds() >= (sampling_minutes * 60):
-                sampled.append(r)
-                last_ts = r.timestamp_utc
-        if rows[-1] not in sampled:
-            sampled.append(rows[-1])
-        rows = sampled
-
-    # Normalización de curva:
-    # - balance: parte del balance inicial y se desplaza por cambios de balance (cierres)
-    # - equity: balance_global + flotante_actual
-    normalized_points = []
-    if rows:
-        baseline_balance = rows[0].balance
-        prev_raw_balance = rows[0].balance
-
-        for r in rows:
-            balance_delta = r.balance - prev_raw_balance
-            baseline_balance += balance_delta
-            floating_pnl = r.equity - r.balance
-            equity_display = baseline_balance + floating_pnl
-
-            normalized_points.append(
-                EquityPoint(
-                    timestamp_utc=r.timestamp_utc,
-                    balance=baseline_balance,
-                    equity=equity_display,
-                    drawdown_pct=r.drawdown_pct,
-                    daily_pnl_usd=r.daily_pnl_usd,
-                    regime=r.regime,
-                    active_mode=r.active_mode,
-                )
-            )
-            prev_raw_balance = r.balance
-
-    equity_curve = normalized_points
+    equity_curve = build_historical_curve(db, login, limit, sampling_minutes)
     
     total_pnl = (equity_curve[-1].equity - equity_curve[0].equity) if len(equity_curve) >= 2 else 0.0
-    max_dd = max((r.drawdown_pct for r in rows), default=0.0)
+    max_dd = max((p.drawdown_pct for p in equity_curve), default=0.0)
     
     account = db.query(Account).filter(Account.login == login).first()
     wr = account.status_data.get("win_rate") if account and account.status_data else None
     pf = account.status_data.get("profit_factor") if account and account.status_data else None
+    broker = account.broker if account else ""
 
     return PerformanceSummary(
-        account_login=login, broker=rows[0].broker if rows else "",
+        account_login=login, broker=broker,
         equity_curve=equity_curve, total_pnl_usd=round(total_pnl, 2),
-        max_drawdown_pct=round(max_dd, 2), win_rate=wr, profit_factor=pf, n_snapshots=len(rows)
+        max_drawdown_pct=round(max_dd, 2), win_rate=wr, profit_factor=pf, n_snapshots=len(equity_curve)
     )
 
 @router.get("/report/{login}", response_model=AccountReportResponse)
 async def get_account_report(
-    login: str, limit: int = 1000,
+    login: str, limit: int = 2000,
     db: Session = Depends(get_db), user: User = Depends(get_current_user)
 ):
     account = db.query(Account).filter(Account.login == login).first()
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
 
-    query = db.query(TelemetryHistory).filter(TelemetryHistory.account_login == login)
-    rows = query.order_by(TelemetryHistory.timestamp_utc.asc()).limit(limit).all()
+    equity_curve = build_historical_curve(db, login, limit, None)
     
-    if not rows:
+    if not equity_curve:
         raise HTTPException(status_code=404, detail="No telemetry data for this account")
 
     sd = account.status_data or {}
@@ -120,25 +162,13 @@ async def get_account_report(
         "digits": 2
     }
 
-    # 2. Extract initial balance
-    # In MT5 initial balance usually counts as a deposit
-    initial_balance = sd.get("initial_balance", rows[0].balance)
+    initial_balance = equity_curve[0].balance if len(equity_curve) > 0 else 0.0
     
     # 3. Chart & Balance
     chart_points = []
-    baseline_balance = initial_balance
-    prev_raw_balance = rows[0].balance if rows else initial_balance
-    
-    for r in rows:
-        balance_delta = r.balance - prev_raw_balance
-        baseline_balance += balance_delta
-        floating_pnl = r.equity - r.balance
-        equity_display = baseline_balance + floating_pnl
-        
-        # timestamp to seconds
-        ts_sec = int(r.timestamp_utc.timestamp())
-        chart_points.append(ReportChartPoint(x=ts_sec, y=[round(baseline_balance, 2), round(equity_display, 2)]))
-        prev_raw_balance = r.balance
+    for p in equity_curve:
+        ts_sec = int(p.timestamp_utc.timestamp())
+        chart_points.append(ReportChartPoint(x=ts_sec, y=[round(p.balance, 2), round(p.equity, 2)]))
 
     current_balance = chart_points[-1].y[0] if chart_points else initial_balance
     current_equity = chart_points[-1].y[1] if chart_points else initial_balance
@@ -185,9 +215,9 @@ async def get_account_report(
     
     # group by year and month using the normalized equity
     years_data = defaultdict(lambda: defaultdict(list))
-    for r, cp in zip(rows, chart_points):
-        y = r.timestamp_utc.year
-        m = r.timestamp_utc.month
+    for p, cp in zip(equity_curve, chart_points):
+        y = p.timestamp_utc.year
+        m = p.timestamp_utc.month
         # cp.y[1] is equity_display
         years_data[y][m].append(cp.y[1])
 
