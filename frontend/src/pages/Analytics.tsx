@@ -18,7 +18,7 @@ export default function Analytics() {
   const [range, setRange] = useState<RangeOption>('90d')
 
   const limit = range === 'all' ? 5000 : range === '90d' ? 2000 : range === '30d' ? 1000 : 500
-  const { data: perf, isLoading } = usePerformance(selectedLogin, !!selectedLogin && limit > 0)
+  const { data: perf, isLoading } = usePerformance(selectedLogin, limit, !!selectedLogin && limit > 0)
 
   const metrics = React.useMemo(() => {
     if (!perf || perf.equity_curve.length < 2) return null
@@ -225,7 +225,7 @@ export default function Analytics() {
             </div>
           </div>
           {/* MT5 Report Replica */}
-          <MT5ReportSection login={selectedLogin} />
+          <MT5ReportSection login={selectedLogin} limit={limit} />
         </>
       )}
 

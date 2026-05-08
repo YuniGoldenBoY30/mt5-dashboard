@@ -52,7 +52,7 @@ async def update_telemetry(
 
     return {"status": "ok", "processed_accounts": len(updated_accounts)}
 
-@router.post("/telemetry/bulk", status_code=200)
+@router.post("/bulk", status_code=200)
 async def bulk_import_telemetry(
     payloads: List[VpsTelemetryPayload],
     db: Session = Depends(get_db),

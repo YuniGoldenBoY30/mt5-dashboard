@@ -10,19 +10,19 @@ export function useAccounts() {
   })
 }
 
-export function usePerformance(login: string, enabled = true) {
+export function usePerformance(login: string, limit: number = 300, enabled = true) {
   return useQuery({
-    queryKey: ['performance', login],
-    queryFn: () => apiGetPerformance(login, 300),
+    queryKey: ['performance', login, limit],
+    queryFn: () => apiGetPerformance(login, limit),
     enabled: enabled && !!login,
     staleTime: 30_000,
   })
 }
 
-export function useAccountReport(login: string, enabled = true) {
+export function useAccountReport(login: string, limit: number = 2000, enabled = true) {
   return useQuery({
-    queryKey: ['report', login],
-    queryFn: () => apiGetAccountReport(login, 2000),
+    queryKey: ['report', login, limit],
+    queryFn: () => apiGetAccountReport(login, limit),
     enabled: enabled && !!login,
     staleTime: 60_000,
   })

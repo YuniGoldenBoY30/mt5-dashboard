@@ -6,10 +6,11 @@ import MT5BalanceChart from '../charts/MT5BalanceChart'
 
 interface Props {
   login: string
+  limit?: number
 }
 
-export default function MT5ReportSection({ login }: Props) {
-  const { data: report, isLoading, error } = useAccountReport(login)
+export default function MT5ReportSection({ login, limit = 2000 }: Props) {
+  const { data: report, isLoading, error } = useAccountReport(login, limit)
 
   if (isLoading) {
     return <div className="text-sm text-slate-500 animate-pulse">Cargando Reporte MT5...</div>
