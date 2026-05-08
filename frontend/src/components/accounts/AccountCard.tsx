@@ -3,9 +3,11 @@ import { clsx } from 'clsx'
 import { ChevronDown, ChevronUp, Clock, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import type { Account } from '../../types'
 import { ddColor, fmtUSD, fmtPct, isStale } from '../../types'
+import { usePerformance } from '../../hooks/useAccounts'
 import RegimeBadge from '../RegimeBadge'
 import ModeIndicator from '../ModeIndicator'
 import PositionsList from '../PositionsList'
+import AccountEvolutionChart from '../charts/AccountEvolutionChart'
 
 interface Props {
   account: Account
@@ -18,6 +20,7 @@ export default function AccountCard({ account, onClosePosition, canClose }: Prop
   const sd = account.status_data
   const stale = isStale(account.last_update)
   const pnl = sd?.daily_pnl_usd ?? 0
+  const { data: perf, isLoading: isLoadingPerf } = usePerformance(account.login, 5000, expanded && !!account.login)
 
   const PnlIcon = pnl > 0 ? TrendingUp : pnl < 0 ? TrendingDown : Minus
   const pnlColor = pnl > 0 ? 'text-green-400' : pnl < 0 ? 'text-red-400' : 'text-slate-400'
@@ -129,6 +132,23 @@ export default function AccountCard({ account, onClosePosition, canClose }: Prop
             <Metric label="Win Rate" value={sd?.win_rate != null ? `${(sd.win_rate * 100).toFixed(1)}%` : '—'} />
             <Metric label="Profit Factor" value={sd?.profit_factor?.toFixed(2) ?? '—'} />
             <Metric label="Kelly" value={sd?.kelly_fraction != null ? `${(sd.kelly_fraction * 100).toFixed(1)}%` : '—'} />
+          </div>
+
+          <div>
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
+              Evolución histórica
+            </div>
+            {isLoadingPerf ? (
+              <div className="rounded-lg bg-slate-900/40 px-4 py-8 text-center text-sm text-slate-500">
+                Cargando evolución de la cuenta…
+              </div>
+            ) : (
+              <AccountEvolutionChart
+                data={perf?.equity_curve ?? []}
+                initialBalance={sd?.initial_balance}
+                height={250}
+              />
+            )}
           </div>
 
           {/* Posiciones */}

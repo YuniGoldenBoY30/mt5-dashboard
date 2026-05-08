@@ -132,7 +132,7 @@ export default function MT5ReportSection({ login, limit = 2000 }: Props) {
           <h3 className="text-sm font-semibold text-slate-300">Gráfico de Equidad / Balance</h3>
         </div>
         <div className="p-4">
-          <MT5BalanceChart balanceData={balance} height={350} />
+          <MT5BalanceChart balanceData={balance} initialBalance={summary.deposit[0]} height={350} />
         </div>
       </div>
       

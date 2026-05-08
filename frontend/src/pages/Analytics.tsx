@@ -3,7 +3,7 @@ import { TrendingUp, Activity, BarChart3 } from 'lucide-react'
 import { useAccountsWebSocket } from '../hooks/useWebSocket'
 import { usePerformance } from '../hooks/useAccounts'
 import StatCard from '../components/StatCard'
-import EquityChart from '../components/charts/EquityChart'
+import AccountEvolutionChart from '../components/charts/AccountEvolutionChart'
 import DrawdownChart from '../components/charts/DrawdownChart'
 import MT5ReportSection from '../components/accounts/MT5ReportSection'
 import { calcCAGR, calcSharpe, calcSortino, calcCalmar, maxDrawdown } from '../utils/metrics'
@@ -11,7 +11,24 @@ import { fmtUSD, fmtPct, type ClosedTrade } from '../types'
 import { apiGetAccountTrades } from '../services/api'
 import { useQuery } from '@tanstack/react-query'
 
-type RangeOption = '7d' | '30d' | '90d' | 'all'
+type RangeOption = 'today' | '7d' | '30d' | '90d' | 'all'
+
+function getRangeStart(range: RangeOption): Date | null {
+  const now = new Date()
+
+  if (range === 'all') return null
+
+  const start = new Date(now)
+
+  if (range === 'today') {
+    start.setHours(0, 0, 0, 0)
+    return start
+  }
+
+  const days = range === '7d' ? 7 : range === '30d' ? 30 : 90
+  start.setDate(start.getDate() - days)
+  return start
+}
 
 export default function Analytics() {
   const { accounts } = useAccountsWebSocket()
@@ -38,17 +55,31 @@ export default function Analytics() {
   })
 
   const trades: ClosedTrade[] = tradesResponse || []
+  const rangeStart = React.useMemo(() => getRangeStart(range), [range])
+
+  const filteredCurve = React.useMemo(() => {
+    if (!perf?.equity_curve) return []
+    if (!rangeStart) return perf.equity_curve
+
+    return perf.equity_curve.filter((point) => new Date(point.timestamp_utc) >= rangeStart)
+  }, [perf, rangeStart])
+
+  const filteredTrades = React.useMemo(() => {
+    if (!rangeStart) return trades
+
+    return trades.filter((trade) => new Date(trade.close_time_utc) >= rangeStart)
+  }, [trades, rangeStart])
 
   const metrics = React.useMemo(() => {
-    if (!perf || perf.equity_curve.length < 2) return null
-    const curve = perf.equity_curve
+    if (filteredCurve.length < 2) return null
+    const curve = filteredCurve
     const cagr = calcCAGR(curve)
     const sharpe = calcSharpe(curve)
     const sortino = calcSortino(curve)
-    const dd = perf.max_drawdown_pct ?? maxDrawdown(curve)
+    const dd = maxDrawdown(curve)
     const calmar = calcCalmar(cagr, dd)
     return { cagr, sharpe, sortino, dd, calmar }
-  }, [perf])
+  }, [filteredCurve])
 
   const selectedAccountInfo = React.useMemo(() => {
     return activeAccounts.find((a) => a.login === selectedLogin)
@@ -82,7 +113,7 @@ export default function Analytics() {
         <div>
           <label className="block text-xs text-slate-400 mb-1">Rango</label>
           <div className="flex gap-1">
-            {(['7d', '30d', '90d', 'all'] as RangeOption[]).map((r) => (
+            {(['today', '7d', '30d', '90d', 'all'] as RangeOption[]).map((r) => (
               <button
                 key={r}
                 onClick={() => setRange(r)}
@@ -92,7 +123,7 @@ export default function Analytics() {
                     : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                 }`}
               >
-                {r === 'all' ? 'Completo' : r}
+                {r === 'all' ? 'Completo' : r === 'today' ? 'Hoy' : r}
               </button>
             ))}
           </div>
@@ -122,14 +153,19 @@ export default function Analytics() {
               <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-4">
                 Equity Curve — {selectedLogin}
               </h2>
-              <EquityChart data={perf.equity_curve} height={280} showBalance />
+              <AccountEvolutionChart
+                data={filteredCurve}
+                initialBalance={selectedAccountInfo?.status_data?.initial_balance}
+                height={280}
+                title="Evolución de la cuenta"
+              />
             </div>
 
             <div className="rounded-xl border border-white/10 bg-slate-800/40 backdrop-blur px-4 py-4">
               <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-2">
                 Drawdown
               </h2>
-              <DrawdownChart data={perf.equity_curve} height={140} />
+              <DrawdownChart data={filteredCurve} height={140} />
             </div>
           </div>
 
@@ -154,7 +190,7 @@ export default function Analytics() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {[...perf.equity_curve].reverse().slice(0, 100).map((p, idx) => (
+                  {[...filteredCurve].reverse().slice(0, 100).map((p, idx) => (
                     <tr key={idx} className="hover:bg-white/5">
                       <td className="py-1.5 px-3 text-slate-400">
                         {new Date(p.timestamp_utc).toLocaleString()}
@@ -199,10 +235,10 @@ export default function Analytics() {
               <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
                 Historial de Operaciones (Persistente)
               </h2>
-              <span className="text-xs text-slate-500">{trades.length} operaciones</span>
+              <span className="text-xs text-slate-500">{filteredTrades.length} operaciones</span>
             </div>
             <div className="overflow-x-auto max-h-80">
-              {trades.length > 0 ? (
+              {filteredTrades.length > 0 ? (
                 <table className="w-full text-xs">
                   <thead className="bg-slate-900/60">
                     <tr className="text-slate-400 border-b border-white/10">
@@ -214,7 +250,7 @@ export default function Analytics() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {trades.map((t, idx) => (
+                    {filteredTrades.map((t, idx) => (
                       <tr key={idx} className="hover:bg-white/5">
                         <td className="py-1.5 px-3 text-slate-400">#{t.ticket}</td>
                         <td className="py-1.5 px-3 font-medium text-white">{t.symbol}</td>
@@ -249,7 +285,7 @@ export default function Analytics() {
         </>
       )}
 
-      {!isLoading && (!perf || perf.equity_curve.length < 2) && (
+      {!isLoading && (!perf || filteredCurve.length < 2) && (
         <div className="rounded-xl border border-white/10 bg-slate-800/40 px-6 py-12 text-center text-slate-500">
           <Activity className="w-8 h-8 mx-auto mb-2 opacity-40" />
           <p>No hay datos históricos suficientes para este período.</p>

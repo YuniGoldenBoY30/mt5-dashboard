@@ -5,18 +5,26 @@ import { usePerformance } from '../hooks/useAccounts'
 import StatCard from '../components/StatCard'
 import RegimeBadge from '../components/RegimeBadge'
 import ModeIndicator from '../components/ModeIndicator'
-import EquityChart from '../components/charts/EquityChart'
+import AccountEvolutionChart from '../components/charts/AccountEvolutionChart'
 import ConnectionStatus from '../components/ConnectionStatus'
 import { fmtUSD, fmtPct } from '../types'
 
 // Mini equity chart per account
-function AccountEquityRow({ login }: { login: string }) {
+function AccountEquityRow({ login, initialBalance }: { login: string; initialBalance?: number }) {
   const { data } = usePerformance(login)
   if (!data || data.equity_curve.length < 2) return null
 
   return (
     <div className="h-16">
-      <EquityChart data={data.equity_curve} height={64} showBalance={false} />
+      <AccountEvolutionChart
+        data={data.equity_curve}
+        initialBalance={initialBalance}
+        height={64}
+        compact
+        allowZoom={false}
+        allowModeToggle={false}
+        showLegend={false}
+      />
     </div>
   )
 }
@@ -101,7 +109,7 @@ export default function TeamView() {
                     </div>
 
                     <div className="hidden sm:block flex-1">
-                      <AccountEquityRow login={account.login} />
+                      <AccountEquityRow login={account.login} initialBalance={sd.initial_balance} />
                     </div>
 
                     <div className="flex items-center gap-3 ml-auto">
@@ -139,7 +147,7 @@ export default function TeamView() {
         <div className="rounded-xl border border-white/10 bg-slate-800/40 backdrop-blur px-4 py-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
-              Equity — {selectedLogin}
+              Evolución — {selectedLogin}
             </h2>
             <div className="flex items-center gap-4 text-sm">
               <span className="text-slate-400">P&L total:
@@ -154,7 +162,12 @@ export default function TeamView() {
               </span>
             </div>
           </div>
-          <EquityChart data={perfData.equity_curve} height={200} showBalance />
+          <AccountEvolutionChart
+            data={perfData.equity_curve}
+            initialBalance={active.find((a) => a.login === selectedLogin)?.status_data?.initial_balance}
+            height={220}
+            title="Evolución de la cuenta"
+          />
         </div>
       )}
     </div>

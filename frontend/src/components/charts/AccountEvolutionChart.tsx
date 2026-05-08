@@ -1,0 +1,200 @@
+import React, { useMemo, useState } from 'react'
+import {
+  Brush,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
+import type { EquityPoint } from '../../types'
+
+interface Props {
+  data: EquityPoint[]
+  initialBalance?: number
+  height?: number
+  title?: string
+  compact?: boolean
+  allowZoom?: boolean
+  allowModeToggle?: boolean
+  showLegend?: boolean
+  defaultMode?: ViewMode
+}
+
+type ViewMode = 'absolute' | 'percent'
+
+function formatTime(ts: string): string {
+  const d = new Date(ts)
+  return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
+}
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('es-ES', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: Math.abs(value) < 100 ? 2 : 0,
+  }).format(value)
+}
+
+function formatPercent(value: number): string {
+  return new Intl.NumberFormat('es-ES', {
+    minimumFractionDigits: Math.abs(value) < 10 ? 2 : 1,
+    maximumFractionDigits: Math.abs(value) < 10 ? 2 : 1,
+  }).format(value)
+}
+
+export default function AccountEvolutionChart({
+  data,
+  initialBalance,
+  height = 260,
+  title = 'Evolución de la cuenta',
+  compact = false,
+  allowZoom = true,
+  allowModeToggle = true,
+  showLegend = true,
+  defaultMode = 'absolute',
+}: Props) {
+  const [mode, setMode] = useState<ViewMode>(defaultMode)
+
+  const safeInitialBalance = initialBalance && initialBalance > 0
+    ? initialBalance
+    : data[0]?.balance
+
+  const chartData = useMemo(() => {
+    if (!safeInitialBalance || !data.length) return []
+
+    return data.map((point) => ({
+      time: formatTime(point.timestamp_utc),
+      balanceAbs: point.balance - safeInitialBalance,
+      equityAbs: point.equity - safeInitialBalance,
+      balancePct: ((point.balance / safeInitialBalance) - 1) * 100,
+      equityPct: ((point.equity / safeInitialBalance) - 1) * 100,
+    }))
+  }, [data, safeInitialBalance])
+
+  if (!chartData.length || !safeInitialBalance) {
+    return (
+      <div style={{ height }} className={`flex items-center justify-center text-slate-500 text-sm ${compact ? '' : 'rounded-lg bg-slate-900/40'}`}>
+        Sin histórico suficiente para graficar evolución
+      </div>
+    )
+  }
+
+  const balanceKey = mode === 'absolute' ? 'balanceAbs' : 'balancePct'
+  const equityKey = mode === 'absolute' ? 'equityAbs' : 'equityPct'
+
+  const values = chartData.flatMap((point) => [point[balanceKey as keyof typeof point], point[equityKey as keyof typeof point]] as number[])
+  const minVal = Math.min(...values, 0)
+  const maxVal = Math.max(...values, 0)
+  const range = maxVal - minVal || 1
+  const pad = Math.max(range * 0.08, mode === 'absolute' ? 25 : 0.5)
+  const domain: [number, number] = [minVal - pad, maxVal + pad]
+  const containerClass = compact ? '' : 'rounded-lg border border-white/5 bg-slate-900/40 p-3'
+  const chartMargin = compact ? { top: 4, right: 4, left: 4, bottom: 0 } : { top: 8, right: 12, left: 10, bottom: 0 }
+
+  return (
+    <div className={containerClass}>
+      {!compact && (
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              {title}
+            </div>
+            <div className="text-xs text-slate-500">
+              `0` = balance inicial {mode === 'absolute' ? `$${formatCurrency(safeInitialBalance)}` : '100% base'}
+            </div>
+          </div>
+          {allowModeToggle && (
+            <div className="flex rounded-lg border border-white/10 bg-slate-800/70 p-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setMode('absolute')}
+                className={`rounded-md px-2.5 py-1 transition-colors ${mode === 'absolute' ? 'bg-cyan-500 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
+              >
+                USD
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('percent')}
+                className={`rounded-md px-2.5 py-1 transition-colors ${mode === 'percent' ? 'bg-cyan-500 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
+              >
+                %
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      <ResponsiveContainer width="100%" height={height}>
+        <LineChart data={chartData} margin={chartMargin}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+          <XAxis
+            dataKey="time"
+            tick={{ fill: '#94a3b8', fontSize: compact ? 9 : 10 }}
+            tickLine={false}
+            axisLine={false}
+            minTickGap={28}
+          />
+          <YAxis
+            domain={domain}
+            tick={{ fill: '#94a3b8', fontSize: compact ? 9 : 10 }}
+            tickLine={false}
+            axisLine={false}
+            width={compact ? 58 : 78}
+            tickFormatter={(v) => mode === 'absolute' ? `$${formatCurrency(v)}` : `${formatPercent(v)}%`}
+          />
+          <Tooltip
+            contentStyle={{
+              background: '#0f172a',
+              border: '1px solid #334155',
+              borderRadius: 8,
+              fontSize: 12,
+            }}
+            labelStyle={{ color: '#94a3b8' }}
+            formatter={(value: number, name: string) => {
+              const label = name === balanceKey ? 'Balance' : 'Equity'
+              return [mode === 'absolute' ? `$${formatCurrency(value)}` : `${formatPercent(value)}%`, label]
+            }}
+          />
+          {showLegend && !compact && (
+            <Legend
+              wrapperStyle={{ fontSize: '12px' }}
+              formatter={(value) => <span style={{ color: '#cbd5e1' }}>{value}</span>}
+            />
+          )}
+          <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" />
+          <Line
+            type="monotone"
+            dataKey={balanceKey}
+            name="Balance"
+            stroke="#3b82f6"
+            strokeWidth={2}
+            dot={false}
+            isAnimationActive={false}
+          />
+          <Line
+            type="monotone"
+            dataKey={equityKey}
+            name="Equity"
+            stroke="#22c55e"
+            strokeWidth={2}
+            dot={false}
+            isAnimationActive={false}
+          />
+          {allowZoom && !compact && (
+            <Brush
+              dataKey="time"
+              height={22}
+              stroke="#06b6d4"
+              fill="#0f172a"
+              travellerWidth={10}
+            />
+          )}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}

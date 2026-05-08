@@ -7,7 +7,7 @@ import { apiClosePosition, apiAckAlert } from '../services/api'
 import toast from 'react-hot-toast'
 import AccountCard from '../components/accounts/AccountCard'
 import StatCard from '../components/StatCard'
-import EquityChart from '../components/charts/EquityChart'
+import AccountEvolutionChart from '../components/charts/AccountEvolutionChart'
 import DrawdownChart from '../components/charts/DrawdownChart'
 import RegimeBadge from '../components/RegimeBadge'
 import ModeIndicator from '../components/ModeIndicator'
@@ -61,7 +61,7 @@ function AccountTechPanel({ account }: { account: ReturnType<typeof useAccountsW
       ) : perf && perf.equity_curve.length > 1 ? (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Equity Curve</h3>
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Evolución de la cuenta</h3>
             <button onClick={() => refetch()} className="text-xs text-slate-500 hover:text-cyan-400 flex items-center gap-1 transition-colors">
               <RefreshCw className="w-3 h-3" /> Actualizar
             </button>
@@ -72,7 +72,12 @@ function AccountTechPanel({ account }: { account: ReturnType<typeof useAccountsW
             <TechMetric label="Snapshots" value={perf.n_snapshots} />
             <TechMetric label="Win Rate OOS" value={perf.win_rate != null ? `${(perf.win_rate * 100).toFixed(1)}%` : '—'} />
           </div>
-          <EquityChart data={perf.equity_curve} height={200} showBalance />
+          <AccountEvolutionChart
+            data={perf.equity_curve}
+            initialBalance={sd.initial_balance}
+            height={220}
+            title="Evolución de la cuenta"
+          />
           <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Drawdown</h3>
           <DrawdownChart data={perf.equity_curve} height={110} />
         </div>
