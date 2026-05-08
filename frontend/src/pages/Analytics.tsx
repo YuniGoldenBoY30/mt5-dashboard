@@ -7,7 +7,7 @@ import EquityChart from '../components/charts/EquityChart'
 import DrawdownChart from '../components/charts/DrawdownChart'
 import MT5ReportSection from '../components/accounts/MT5ReportSection'
 import { calcCAGR, calcSharpe, calcSortino, calcCalmar, maxDrawdown } from '../utils/metrics'
-import { fmtUSD, fmtPct } from '../types'
+import { fmtUSD, fmtPct, type ClosedTrade } from '../types'
 import { apiGetAccountTrades } from '../services/api'
 import { useQuery } from '@tanstack/react-query'
 
@@ -19,6 +19,15 @@ export default function Analytics() {
   const [selectedLogin, setSelectedLogin] = useState<string>(activeAccounts[0]?.login || '')
   const [range, setRange] = useState<RangeOption>('90d')
 
+  React.useEffect(() => {
+    if (!activeAccounts.length) return
+
+    const selectedStillExists = activeAccounts.some((a) => a.login === selectedLogin)
+    if (!selectedLogin || !selectedStillExists) {
+      setSelectedLogin(activeAccounts[0].login)
+    }
+  }, [activeAccounts, selectedLogin])
+
   const limit = range === 'all' ? 5000 : range === '90d' ? 2000 : range === '30d' ? 1000 : 500
   const { data: perf, isLoading } = usePerformance(selectedLogin, limit, !!selectedLogin && limit > 0)
 
@@ -28,7 +37,7 @@ export default function Analytics() {
     enabled: !!selectedLogin,
   })
 
-  const trades = tradesResponse || []
+  const trades: ClosedTrade[] = tradesResponse || []
 
   const metrics = React.useMemo(() => {
     if (!perf || perf.equity_curve.length < 2) return null
@@ -205,7 +214,7 @@ export default function Analytics() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {trades.map((t: any, idx: number) => (
+                    {trades.map((t, idx) => (
                       <tr key={idx} className="hover:bg-white/5">
                         <td className="py-1.5 px-3 text-slate-400">#{t.ticket}</td>
                         <td className="py-1.5 px-3 font-medium text-white">{t.symbol}</td>
