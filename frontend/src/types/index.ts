@@ -132,19 +132,29 @@ export interface MT5ReportBalance {
   chart: MT5ReportChartPoint[]
 }
 
+export interface MT5ReportTableYear {
+  year: number
+  months: Record<string, number>
+  total: number
+}
+
+export interface MT5ReportTable {
+  years: MT5ReportTableYear[]
+}
+
 export interface AccountReportResponse {
   account: {
     name: string
     currency: string
     type: string
     broker: string
-    account: string | number
+    account: number | string
     digits: number
   }
   summary: MT5ReportSummary
   summaryIndicators: MT5ReportIndicators
   balance: MT5ReportBalance
-  table?: any
+  table?: MT5ReportTable | null
 }
 
 export interface Alert {

@@ -179,12 +179,56 @@ async def get_account_report(
         chart=chart_points
     )
 
+    # 5. Build Monthly/Yearly Table
+    from collections import defaultdict
+    import datetime
+    
+    # group by year and month using the normalized equity
+    years_data = defaultdict(lambda: defaultdict(list))
+    for r, cp in zip(rows, chart_points):
+        y = r.timestamp_utc.year
+        m = r.timestamp_utc.month
+        # cp.y[1] is equity_display
+        years_data[y][m].append(cp.y[1])
+
+    table_years = []
+    for y in sorted(years_data.keys()):
+        months_dict = years_data[y]
+        year_months = {}
+        year_first_eq = None
+        year_last_eq = None
+        
+        for m in range(1, 13):
+            if m in months_dict:
+                snaps = months_dict[m]
+                first_e = snaps[0]
+                last_e = snaps[-1]
+                
+                if year_first_eq is None:
+                    year_first_eq = first_e
+                year_last_eq = last_e
+                
+                ret = ((last_e - first_e) / first_e * 100) if first_e > 0 else 0.0
+                year_months[str(m)] = round(ret, 2)
+                
+        year_total = 0.0
+        if year_first_eq and year_first_eq > 0 and year_last_eq:
+            year_total = ((year_last_eq - year_first_eq) / year_first_eq) * 100
+            
+        table_years.append({
+            "year": y,
+            "months": year_months,
+            "total": round(year_total, 2)
+        })
+
+    report_table = {"years": table_years} if table_years else None
+
     return AccountReportResponse(
         account=account_info,
         summary=summary,
         summaryIndicators=indicators,
         balance=report_balance,
-        table=None # Phase 2
+        table=report_table
     )
 
 @router.post("/close-position")

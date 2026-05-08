@@ -135,6 +135,56 @@ export default function MT5ReportSection({ login, limit = 2000 }: Props) {
           <MT5BalanceChart balanceData={balance} initialBalance={summary.deposit[0]} height={350} />
         </div>
       </div>
+
+      {/* Table (Heatmap Mensual/Anual) */}
+      {report.table && report.table.years && report.table.years.length > 0 && (
+        <div className="bg-slate-800/40 border border-white/10 rounded-xl overflow-hidden">
+          <div className="px-4 py-3 bg-slate-900/40 border-b border-white/10">
+            <h3 className="text-sm font-semibold text-slate-300">Rendimiento Mensual (%)</h3>
+          </div>
+          <div className="p-4 overflow-x-auto">
+            <table className="w-full text-sm text-right">
+              <thead>
+                <tr className="text-slate-400 border-b border-white/10">
+                  <th className="text-left font-medium py-2 px-2">Año</th>
+                  <th className="font-medium py-2 px-2">Ene</th>
+                  <th className="font-medium py-2 px-2">Feb</th>
+                  <th className="font-medium py-2 px-2">Mar</th>
+                  <th className="font-medium py-2 px-2">Abr</th>
+                  <th className="font-medium py-2 px-2">May</th>
+                  <th className="font-medium py-2 px-2">Jun</th>
+                  <th className="font-medium py-2 px-2">Jul</th>
+                  <th className="font-medium py-2 px-2">Ago</th>
+                  <th className="font-medium py-2 px-2">Sep</th>
+                  <th className="font-medium py-2 px-2">Oct</th>
+                  <th className="font-medium py-2 px-2">Nov</th>
+                  <th className="font-medium py-2 px-2">Dic</th>
+                  <th className="font-medium py-2 px-2 text-cyan-400">YTD</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.table.years.map((yData) => (
+                  <tr key={yData.year} className="border-b border-white/5 hover:bg-slate-800/60 transition-colors">
+                    <td className="text-left font-medium text-slate-300 py-3 px-2">{yData.year}</td>
+                    {Array.from({length: 12}, (_, i) => {
+                      const mKey = String(i + 1);
+                      const val = yData.months[mKey];
+                      return (
+                        <td key={mKey} className={`py-3 px-2 font-medium ${val > 0 ? 'text-green-400' : val < 0 ? 'text-red-400' : 'text-slate-600'}`}>
+                          {val !== undefined ? `${val > 0 ? '+' : ''}${val.toFixed(2)}%` : '-'}
+                        </td>
+                      )
+                    })}
+                    <td className={`py-3 px-2 font-bold ${yData.total > 0 ? 'text-green-400' : yData.total < 0 ? 'text-red-400' : 'text-slate-500'}`}>
+                      {yData.total !== undefined ? `${yData.total > 0 ? '+' : ''}${yData.total.toFixed(2)}%` : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
       
     </div>
   )

@@ -129,6 +129,14 @@ class ReportChartPoint(BaseModel):
     x: int
     y: List[float] # [balance, equity]
 
+class ReportTableYear(BaseModel):
+    year: int
+    months: Dict[str, float]
+    total: float
+
+class ReportTable(BaseModel):
+    years: List[ReportTableYear]
+
 class ReportBalance(BaseModel):
     balance: float
     equity: float
@@ -140,5 +148,5 @@ class AccountReportResponse(BaseModel):
     summary: ReportSummary
     summaryIndicators: ReportIndicators
     balance: ReportBalance
-    table: Optional[Dict[str, Any]] = None
+    table: Optional[ReportTable] = None
 
