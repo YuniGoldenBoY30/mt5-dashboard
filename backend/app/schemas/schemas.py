@@ -105,3 +105,40 @@ class AlertResponse(BaseModel):
 class ClosePositionRequest(BaseModel):
     account_id: int
     ticket: int
+
+# --- MT5 Report Schemas ---
+class ReportSummary(BaseModel):
+    gain: float
+    activity: float
+    deposit: List[float] # [amount, count]
+    withdrawal: List[float] # [amount, count]
+    dividend: float
+    correction: float
+    credit: float
+
+class ReportIndicators(BaseModel):
+    sharp_ratio: float
+    profit_factor: float
+    recovery_factor: float
+    drawdown: float
+    deposit_load: float
+    trades_per_week: float
+    hold_time: float
+
+class ReportChartPoint(BaseModel):
+    x: int
+    y: List[float] # [balance, equity]
+
+class ReportBalance(BaseModel):
+    balance: float
+    equity: float
+    period: int
+    chart: List[ReportChartPoint]
+
+class AccountReportResponse(BaseModel):
+    account: Dict[str, Any]
+    summary: ReportSummary
+    summaryIndicators: ReportIndicators
+    balance: ReportBalance
+    table: Optional[Dict[str, Any]] = None
+
