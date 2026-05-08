@@ -33,19 +33,40 @@ def seed():
                 "account_id": int(login),
                 "broker": broker,
                 "name": f"Master Account {login}",
+                "account_type": "REAL" if login == "27499015" else "DEMO",
+                "asset": "EURUSD",
+                "bot_name": "QuantFib Alpha",
+                "timeframe": "Intraday" if login == "27499015" else "Scalping",
+                "initial_balance": 9000.00 if login == "27499015" else 10000.00,
                 "balance": 10000.00,
-                "equity": 10000.00,
+                "equity": 10500.00 if login == "27499015" else 9500.00,
                 "margin": 0.0,
                 "free_margin": 10000.00,
                 "margin_level": 0.0,
                 "drawdown_pct": 0.0,
                 "regime": "RANGE",
                 "active_mode": "NORMAL",
-                "daily_pnl_usd": 0.0,
+                "daily_pnl_usd": 500.0 if login == "27499015" else -500.0,
                 "open_risk_pct": 0.0,
                 "win_rate": 0.0,
                 "profit_factor": 0.0,
                 "kelly_fraction": 0.0,
+                "closed_trades": [
+                    {
+                        "ticket": 100001,
+                        "symbol": "EURUSD",
+                        "type": "BUY",
+                        "close_time_utc": "2024-05-08T10:00:00Z",
+                        "profit_net": 150.50
+                    },
+                    {
+                        "ticket": 100002,
+                        "symbol": "GBPUSD",
+                        "type": "SELL",
+                        "close_time_utc": "2024-05-08T11:30:00Z",
+                        "profit_net": -50.20
+                    }
+                ],
                 "positions": []
             }
             

@@ -16,6 +16,11 @@ class AccountTelemetry(BaseModel):
     account_id: int
     broker: str
     name: Optional[str] = None
+    account_type: Optional[str] = None
+    asset: Optional[str] = None
+    bot_name: Optional[str] = None
+    timeframe: Optional[str] = None
+    initial_balance: Optional[float] = None
     balance: float
     equity: float
     margin: float = 0.0
@@ -32,6 +37,7 @@ class AccountTelemetry(BaseModel):
     kelly_fraction: Optional[float] = None
     n_trades_cycle: Optional[int] = None
     last_audit: Optional[str] = ""
+    closed_trades: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
     positions: List[Dict[str, Any]] = Field(default_factory=list)
 
 class VpsTelemetryPayload(BaseModel):

@@ -38,13 +38,41 @@ export default function AccountCard({ account, onClosePosition, canClose }: Prop
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-white truncate">{sd?.name ?? account.login}</span>
               <span className="text-xs text-slate-500">{account.broker}</span>
+              {sd?.account_type && (
+                <span className={clsx(
+                  "text-[10px] font-bold px-1.5 py-0.5 rounded",
+                  sd.account_type === 'REAL' ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"
+                )}>
+                  {sd.account_type}
+                </span>
+              )}
               {stale && (
                 <span className="inline-flex items-center gap-1 text-xs text-slate-500">
                   <Clock className="w-3 h-3" /> Sin datos
                 </span>
               )}
             </div>
-            <div className="text-xs text-slate-500 mt-0.5">Login: {account.login}</div>
+            <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
+              <span>Login: {account.login}</span>
+              {sd?.bot_name && (
+                <>
+                  <span className="w-1 h-1 bg-slate-600 rounded-full" />
+                  <span>Bot: {sd.bot_name}</span>
+                </>
+              )}
+              {sd?.asset && (
+                <>
+                  <span className="w-1 h-1 bg-slate-600 rounded-full" />
+                  <span>Activo: {sd.asset}</span>
+                </>
+              )}
+              {sd?.timeframe && (
+                <>
+                  <span className="w-1 h-1 bg-slate-600 rounded-full" />
+                  <span>Temp: {sd.timeframe}</span>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Equity + DD */}
@@ -79,6 +107,20 @@ export default function AccountCard({ account, onClosePosition, canClose }: Prop
         <div className="border-t border-white/10 px-4 py-3 space-y-4">
           {/* Métricas grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            <Metric label="Balance Inicial" value={sd?.initial_balance ? `$${sd.initial_balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—'} />
+            <Metric 
+              label="Desempeño Total" 
+              value={
+                sd?.initial_balance && sd.initial_balance !== 0 && sd.equity 
+                  ? `${(((sd.equity - sd.initial_balance) / sd.initial_balance) * 100).toFixed(2)}%`
+                  : '—'
+              } 
+              valueColor={
+                sd?.initial_balance && sd.initial_balance !== 0 && sd.equity 
+                  ? (sd.equity >= sd.initial_balance ? 'text-green-400' : 'text-red-400')
+                  : undefined
+              } 
+            />
             <Metric label="Balance" value={`$${sd?.balance?.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? '—'}`} />
             <Metric label="Equity" value={`$${sd?.equity?.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? '—'}`} />
             <Metric label="Margen libre" value={`$${sd?.free_margin?.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? '—'}`} />
@@ -123,11 +165,11 @@ export default function AccountCard({ account, onClosePosition, canClose }: Prop
   )
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value, valueColor }: { label: string; value: string, valueColor?: string }) {
   return (
     <div className="rounded-lg bg-slate-900/50 px-3 py-2">
       <div className="text-xs text-slate-500">{label}</div>
-      <div className="text-sm font-medium text-white mt-0.5">{value}</div>
+      <div className={clsx("text-sm font-medium mt-0.5", valueColor ?? "text-white")}>{value}</div>
     </div>
   )
 }

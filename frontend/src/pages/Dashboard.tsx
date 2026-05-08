@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react'
-import { DollarSign, TrendingDown, Activity, Wifi } from 'lucide-react'
+import React, { useMemo, useState } from 'react'
+import { DollarSign, TrendingDown, Activity, Wifi, Filter } from 'lucide-react'
 import { useAccountsWebSocket } from '../hooks/useWebSocket'
 import AccountCard from '../components/accounts/AccountCard'
 import StatCard from '../components/StatCard'
@@ -9,14 +9,25 @@ import { fmtUSD } from '../types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClosePosition } from '../services/api'
 import toast from 'react-hot-toast'
+import { clsx } from 'clsx'
 
 export default function Dashboard() {
   const { accounts, status } = useAccountsWebSocket()
   const qc = useQueryClient()
+  
+  const [accountTypeFilter, setAccountTypeFilter] = useState<'ALL' | 'REAL' | 'DEMO'>('ALL')
+
+  const filteredAccounts = useMemo(() => {
+    return accounts.filter(a => {
+      if (accountTypeFilter === 'ALL') return true
+      const type = a.status_data?.account_type?.toUpperCase()
+      return type === accountTypeFilter
+    })
+  }, [accounts, accountTypeFilter])
 
   // Agregados globales
   const summary = useMemo(() => {
-    const active = accounts.filter((a) => a.status_data)
+    const active = filteredAccounts.filter((a) => a.status_data)
     const totalEquity = active.reduce((s, a) => s + (a.status_data?.equity ?? 0), 0)
     const totalBalance = active.reduce((s, a) => s + (a.status_data?.balance ?? 0), 0)
     const totalPnl = active.reduce((s, a) => s + (a.status_data?.daily_pnl_usd ?? 0), 0)
@@ -26,7 +37,7 @@ export default function Dashboard() {
     const openPositions = active.reduce((s, a) => s + (a.status_data?.positions?.length ?? 0), 0)
     const pausedAccounts = active.filter((a) => a.status_data?.active_mode === 'PAUSE').length
     return { totalEquity, totalBalance, totalPnl, maxDD, openPositions, pausedAccounts, count: active.length }
-  }, [accounts])
+  }, [filteredAccounts])
 
   const closeMutation = useMutation({
     mutationFn: ({ accountId, ticket }: { accountId: number; ticket: number }) =>
@@ -95,16 +106,38 @@ export default function Dashboard() {
 
       {/* Accounts grid */}
       <div>
-        <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Cuentas</h2>
-        {accounts.length === 0 ? (
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">Cuentas</h2>
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-slate-500" />
+            <div className="flex bg-slate-800/60 rounded-lg p-1 border border-white/5">
+              {(['ALL', 'REAL', 'DEMO'] as const).map(type => (
+                <button
+                  key={type}
+                  onClick={() => setAccountTypeFilter(type)}
+                  className={clsx(
+                    'px-3 py-1 text-xs font-medium rounded-md transition-colors',
+                    accountTypeFilter === type 
+                      ? 'bg-slate-700 text-white shadow-sm' 
+                      : 'text-slate-400 hover:text-slate-300 hover:bg-slate-800'
+                  )}
+                >
+                  {type === 'ALL' ? 'Todas' : type}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        {filteredAccounts.length === 0 ? (
           <div className="rounded-xl border border-white/10 bg-slate-800/40 px-6 py-12 text-center text-slate-500">
             <Activity className="w-8 h-8 mx-auto mb-2 opacity-40" />
-            <p>Sin cuentas registradas.</p>
+            <p>Sin cuentas registradas para este filtro.</p>
             <p className="text-xs mt-1">Los bots deben enviar telemetría a <code>/api/v1/telemetry</code></p>
           </div>
         ) : (
           <div className="space-y-3">
-            {accounts.map((account) => (
+            {filteredAccounts.map((account) => (
               <AccountCard
                 key={`${account.id}-${account.login}`}
                 account={account}

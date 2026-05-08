@@ -15,6 +15,14 @@ export interface Position {
   open_time?: string
 }
 
+export interface ClosedTrade {
+  ticket: number
+  symbol: string
+  type: 'BUY' | 'SELL' | 'OTHER'
+  close_time_utc: string
+  profit_net: number
+}
+
 /** Régimen de mercado detectado por QuantFib */
 export type MarketRegime = 'RANGE' | 'TREND' | 'STRONG_TREND' | 'VOLATILE' | 'UNKNOWN'
 
@@ -27,6 +35,12 @@ export interface StatusData {
   login: string
   server?: string
   name?: string
+  // Meta
+  account_type?: 'REAL' | 'DEMO'
+  asset?: string
+  bot_name?: string
+  timeframe?: 'Scalping' | 'Intraday' | 'Swing' | string
+  initial_balance?: number
   // Cuenta
   balance: number
   equity: number
@@ -45,6 +59,7 @@ export interface StatusData {
   kelly_fraction?: number
   n_trades_cycle?: number
   last_audit?: string
+  closed_trades?: ClosedTrade[]
   // Posiciones
   positions: Position[]
   timestamp: string

@@ -30,6 +30,10 @@ export default function Analytics() {
     return { cagr, sharpe, sortino, dd, calmar }
   }, [perf])
 
+  const selectedAccountInfo = React.useMemo(() => {
+    return activeAccounts.find((a) => a.login === selectedLogin)
+  }, [activeAccounts, selectedLogin])
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -120,13 +124,13 @@ export default function Analytics() {
               <table className="w-full text-xs">
                 <thead className="bg-slate-900/60">
                   <tr className="text-slate-400 border-b border-white/10">
-                    <th className="text-left py-2 px-3">Fecha</th>
-                    <th className="text-right py-2 px-3">Balance</th>
-                    <th className="text-right py-2 px-3">Equity</th>
-                    <th className="text-right py-2 px-3">DD %</th>
-                    <th className="text-right py-2 px-3">P&L día</th>
-                    <th className="text-center py-2 px-3">Régimen</th>
-                    <th className="text-center py-2 px-3">Modo</th>
+                    <th className="text-left py-2 px-3 sticky top-0 bg-slate-900/90 backdrop-blur">Fecha</th>
+                    <th className="text-right py-2 px-3 sticky top-0 bg-slate-900/90 backdrop-blur">Balance</th>
+                    <th className="text-right py-2 px-3 sticky top-0 bg-slate-900/90 backdrop-blur">Equity</th>
+                    <th className="text-right py-2 px-3 sticky top-0 bg-slate-900/90 backdrop-blur">DD %</th>
+                    <th className="text-right py-2 px-3 sticky top-0 bg-slate-900/90 backdrop-blur">P&L día</th>
+                    <th className="text-center py-2 px-3 sticky top-0 bg-slate-900/90 backdrop-blur">Régimen</th>
+                    <th className="text-center py-2 px-3 sticky top-0 bg-slate-900/90 backdrop-blur">Modo</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -166,6 +170,57 @@ export default function Analytics() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* Tabla de Historial de Operaciones */}
+          <div className="rounded-xl border border-white/10 bg-slate-800/40 overflow-hidden">
+            <div className="px-4 py-3 border-b border-white/10">
+              <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
+                Historial de Operaciones
+              </h2>
+            </div>
+            <div className="overflow-x-auto max-h-80">
+              {selectedAccountInfo?.status_data?.closed_trades && selectedAccountInfo.status_data.closed_trades.length > 0 ? (
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-900/60">
+                    <tr className="text-slate-400 border-b border-white/10">
+                      <th className="text-left py-2 px-3 sticky top-0 bg-slate-900/90 backdrop-blur">Ticket</th>
+                      <th className="text-left py-2 px-3 sticky top-0 bg-slate-900/90 backdrop-blur">Símbolo</th>
+                      <th className="text-center py-2 px-3 sticky top-0 bg-slate-900/90 backdrop-blur">Tipo</th>
+                      <th className="text-left py-2 px-3 sticky top-0 bg-slate-900/90 backdrop-blur">Cierre (UTC)</th>
+                      <th className="text-right py-2 px-3 sticky top-0 bg-slate-900/90 backdrop-blur">Beneficio Neto</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {selectedAccountInfo.status_data.closed_trades.map((t, idx) => (
+                      <tr key={idx} className="hover:bg-white/5">
+                        <td className="py-1.5 px-3 text-slate-400">#{t.ticket}</td>
+                        <td className="py-1.5 px-3 font-medium text-white">{t.symbol}</td>
+                        <td className="py-1.5 px-3 text-center">
+                          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            t.type === 'BUY' ? 'bg-blue-500/20 text-blue-400' :
+                            t.type === 'SELL' ? 'bg-red-500/20 text-red-400' :
+                            'bg-slate-700 text-slate-400'
+                          }`}>
+                            {t.type}
+                          </span>
+                        </td>
+                        <td className="py-1.5 px-3 text-slate-400">
+                          {new Date(t.close_time_utc).toLocaleString()}
+                        </td>
+                        <td className={`py-1.5 px-3 text-right font-bold ${t.profit_net >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {fmtUSD(t.profit_net)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="py-8 text-center text-slate-500 text-sm">
+                  No hay operaciones cerradas recientes para mostrar.
+                </div>
+              )}
             </div>
           </div>
         </>

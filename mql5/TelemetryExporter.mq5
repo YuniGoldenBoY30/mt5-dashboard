@@ -13,6 +13,11 @@ input string   InpDashboardUrl = "https://trading.zenixtech.ai/api/v1/telemetry"
 input string   InpApiToken     = "snqAQ8OpesIP0p1Ur8Z-H0mk-M389qdg8c3dAX8D4OhMiXFi"; // VPS_SECRET_TOKEN (Bearer)
 input string   InpApiKey       = "ZjestbIjvZj9MLzvryprX8DwC5RSk_oYJx_0Dns_yDc9Mhuf"; // X_API_KEY (Firewall)
 input string   InpVpsId        = "";                                               // Identificador único del VPS (vacío = generar UUID/ID aleatorio por instancia)
+input string   InpAccountType  = "REAL";                                           // Tipo de Cuenta (REAL, DEMO)
+input string   InpAsset        = "";                                               // Activo Financiero (vacío = símbolo del gráfico)
+input string   InpBotName      = "";                                               // Nombre del Bot (vacío = detecta EA actual en gráfico)
+input string   InpTimeframe    = "Intraday";                                       // Temporalidad (Scalping, Intraday, Swing)
+input double   InpInitialBalance = 10000.0;                                        // Balance inicial (Auditoría de desempeño)
 input int      InpUpdateFreq   = 2;                                                // Frecuencia de envio en segundos
 input int      InpStatsLookbackDays = 30;                                          // Ventana de historial para stats (días)
 input bool     InpUseHalfKelly = true;                                             // Kelly conservador (Half-Kelly)
@@ -404,6 +409,18 @@ void CheckAndSyncHistory()
 
       if(count > 0) bulk_json += ",";
       
+      // Determinar el nombre del bot automáticamente si InpBotName está vacío
+      string actual_bot_name = InpBotName;
+      if(StringLen(actual_bot_name) == 0)
+        {
+         long chart_id = ChartID();
+         string expert_name = ChartGetString(chart_id, CHART_EXPERT_NAME);
+         if(StringLen(expert_name) > 0)
+            actual_bot_name = expert_name;
+         else
+            actual_bot_name = "QuantFib EA"; // Fallback por defecto
+        }
+
       bulk_json += StringFormat("{"
          "\"vps_id\":\"%s\","
          "\"timestamp_utc\":\"%s\","
@@ -413,6 +430,11 @@ void CheckAndSyncHistory()
             "\"login\":\"%I64u\","
             "\"server\":\"%s\","
             "\"name\":\"%s\","
+            "\"account_type\":\"%s\","
+            "\"asset\":\"%s\","
+            "\"bot_name\":\"%s\","
+            "\"timeframe\":\"%s\","
+            "\"initial_balance\":%.2f,"
             "\"balance\":%.2f,"
             "\"equity\":%.2f,"
             "\"margin\":0.0,"
@@ -423,7 +445,8 @@ void CheckAndSyncHistory()
          "}]"
       "}", g_vps_id, ts, AccountInfoInteger(ACCOUNT_LOGIN), AccountInfoString(ACCOUNT_COMPANY), 
           AccountInfoInteger(ACCOUNT_LOGIN), AccountInfoString(ACCOUNT_SERVER), 
-          AccountInfoString(ACCOUNT_NAME), running_balance, running_balance);
+          AccountInfoString(ACCOUNT_NAME), InpAccountType, (StringLen(InpAsset) > 0 ? InpAsset : Symbol()), 
+          actual_bot_name, InpTimeframe, InpInitialBalance, running_balance, running_balance);
 
       count++;
 
@@ -477,6 +500,7 @@ void SendTelemetry()
    // 1. Recolectar metricas de la cuenta
    long   account_id   = AccountInfoInteger(ACCOUNT_LOGIN);
    string broker       = AccountInfoString(ACCOUNT_COMPANY);
+   string acc_name     = AccountInfoString(ACCOUNT_NAME);
    double balance      = AccountInfoDouble(ACCOUNT_BALANCE);
    double equity       = AccountInfoDouble(ACCOUNT_EQUITY);
    double margin       = AccountInfoDouble(ACCOUNT_MARGIN);
@@ -549,12 +573,32 @@ void SendTelemetry()
    StringReplace(timestamp, " ", "T");
    timestamp += "Z"; // Formato ISO 8601 UTC
    
+   string actual_asset = (StringLen(InpAsset) > 0) ? InpAsset : Symbol();
+   
+   // Determinar el nombre del bot automáticamente si InpBotName está vacío
+   string actual_bot_name = InpBotName;
+   if(StringLen(actual_bot_name) == 0)
+     {
+      long chart_id = ChartID();
+      string expert_name = ChartGetString(chart_id, CHART_EXPERT_NAME);
+      if(StringLen(expert_name) > 0)
+         actual_bot_name = expert_name;
+      else
+         actual_bot_name = "QuantFib EA"; // Fallback por defecto
+     }
+   
    string payload = StringFormat("{"
                                  "\"vps_id\":\"%s\","
                                  "\"timestamp_utc\":\"%s\","
                                  "\"accounts\":[{"
                                     "\"account_id\":%I64u,"
                                     "\"broker\":\"%s\","
+                                    "\"name\":\"%s\","
+                                    "\"account_type\":\"%s\","
+                                    "\"asset\":\"%s\","
+                                    "\"bot_name\":\"%s\","
+                                    "\"timeframe\":\"%s\","
+                                    "\"initial_balance\":%.2f,"
                                     "\"balance\":%.2f,"
                                     "\"equity\":%.2f,"
                                     "\"margin\":%.2f,"
@@ -574,7 +618,7 @@ void SendTelemetry()
                                     "\"positions\":%s"
                                  "}]"
                                  "}",
-                                 g_vps_id, timestamp, account_id, broker, balance, equity, margin, free_margin, margin_level, drawdown_pct,
+                                 g_vps_id, timestamp, account_id, broker, acc_name, InpAccountType, actual_asset, actual_bot_name, InpTimeframe, InpInitialBalance, balance, equity, margin, free_margin, margin_level, drawdown_pct,
                                  regime, active_mode, daily_pnl_usd, open_risk_pct, win_rate, profit_factor, kelly_fraction,
                                  n_trades_cycle, max_drawdown_pct, closed_trades_json, positions_json);
 
