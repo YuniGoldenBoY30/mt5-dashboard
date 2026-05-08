@@ -66,11 +66,19 @@ class TelemetryService:
                     broker=acc.broker, login=login_str, server=vps_payload.vps_id,
                     name=acc.name, status_data=payload_dict
                 )
+                # Si el payload ya era historico, intentamos reflejarlo (aunque lo ideal es que inicie con data en vivo)
+                if acc.regime != "HISTORICAL":
+                    account.last_update = vps_payload.timestamp_utc
                 db.add(account)
             else:
-                account.status_data = payload_dict
-                account.server = vps_payload.vps_id
-                account.last_update = now_utc
+                # Solo actualizar el estado "en vivo" si este payload no es historico o si es mas nuevo que el ultimo
+                is_historical = (acc.regime == "HISTORICAL" or acc.active_mode == "SYNC")
+                is_newer = account.last_update is None or vps_payload.timestamp_utc > account.last_update.replace(tzinfo=timezone.utc)
+                
+                if not is_historical or is_newer:
+                    account.status_data = payload_dict
+                    account.server = vps_payload.vps_id
+                    account.last_update = vps_payload.timestamp_utc
 
             # Hash Chains
             last_snap = db.query(TelemetryHistory).filter(TelemetryHistory.account_login == login_str).order_by(TelemetryHistory.timestamp_utc.desc()).first()
@@ -85,6 +93,28 @@ class TelemetryService:
                 prev_hash=p_hash, record_hash=curr_hash
             )
             db.add(snap)
+
+            # Persistir historial de operaciones en tabla dedicada
+            from app.models.models import ClosedTrade
+            if acc.closed_trades:
+                for trade in acc.closed_trades:
+                    # Upsert por ticket
+                    existing_trade = db.query(ClosedTrade).filter(ClosedTrade.ticket == trade.get("ticket")).first()
+                    if not existing_trade:
+                        close_time = trade.get("close_time_utc")
+                        if isinstance(close_time, str):
+                            close_time = datetime.fromisoformat(close_time.replace("Z", "+00:00"))
+                        
+                        new_trade = ClosedTrade(
+                            account_login=login_str,
+                            ticket=trade.get("ticket"),
+                            symbol=trade.get("symbol"),
+                            trade_type=trade.get("type"),
+                            close_time_utc=close_time,
+                            profit_net=trade.get("profit_net")
+                        )
+                        db.add(new_trade)
+
             updated_accounts.append(account)
         
         return updated_accounts

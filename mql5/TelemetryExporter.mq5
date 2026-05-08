@@ -617,6 +617,15 @@ void CheckAndSyncHistory()
       string actual_bot_name, actual_asset, actual_timeframe;
       DetectActiveBots(actual_bot_name, actual_asset, actual_timeframe);
 
+      string closed_trades_str = "[]";
+      if(IsClosedTradeEntry(deal_entry))
+        {
+         string symbol = HistoryDealGetString(ticket, DEAL_SYMBOL);
+         string type_str = (deal_type == DEAL_TYPE_BUY) ? "BUY" : (deal_type == DEAL_TYPE_SELL ? "SELL" : "OTHER");
+         double net = GetDealNetAmount(ticket);
+         closed_trades_str = StringFormat("[{\"ticket\":%I64u,\"symbol\":\"%s\",\"type\":\"%s\",\"close_time_utc\":\"%s\",\"profit_net\":%.2f}]", ticket, symbol, type_str, ts, net);
+        }
+
       bulk_json += StringFormat("{"
          "\"vps_id\":\"%s\","
          "\"timestamp_utc\":\"%s\","
@@ -637,17 +646,18 @@ void CheckAndSyncHistory()
             "\"drawdown_pct\":0.0,"
             "\"regime\":\"HISTORICAL\","
             "\"active_mode\":\"SYNC\","
-            "\"positions\":[]"
+            "\"positions\":[],"
+            "\"closed_trades\":%s"
          "}]"
          "}", g_vps_id, ts, AccountInfoInteger(ACCOUNT_LOGIN), AccountInfoString(ACCOUNT_COMPANY), 
           AccountInfoInteger(ACCOUNT_LOGIN), AccountInfoString(ACCOUNT_SERVER), 
           AccountInfoString(ACCOUNT_NAME), GetAccountType(), actual_asset, 
-          actual_bot_name, actual_timeframe, actual_initial_balance, running_balance, running_balance);
+          actual_bot_name, actual_timeframe, actual_initial_balance, running_balance, running_balance, closed_trades_str);
 
       count++;
 
       // Enviar en bloques de 20 para no saturar WebRequest
-      if(count >= 20 || i == total_deals - 1)
+      if(count >= 20)
         {
          bulk_json += "]";
          if(SendBulkToDashboard(bulk_json))
@@ -660,6 +670,20 @@ void CheckAndSyncHistory()
            }
          bulk_json = "[";
          count = 0;
+        }
+     }
+
+   // Enviar cualquier bloque residual que haya quedado pendiente
+   if(count > 0)
+     {
+      bulk_json += "]";
+      if(SendBulkToDashboard(bulk_json))
+        {
+         sent_count += count;
+        }
+      else
+        {
+         sync_failed = true;
         }
      }
 
@@ -704,6 +728,7 @@ bool SendBulkToDashboard(string json_body)
    char result[];
    string result_headers;
    StringToCharArray(json_body, data, 0, WHOLE_ARRAY, CP_UTF8);
+   ArrayResize(data, ArraySize(data) - 1); // Remover null-terminator para evitar JSON decode error "Extra data" en FastAPI
    
    string url = BuildBulkTelemetryUrl();
    string headers = StringFormat("Content-Type: application/json\r\n"

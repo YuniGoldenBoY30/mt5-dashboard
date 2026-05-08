@@ -68,6 +68,13 @@ export async function apiGetAccount(id: number): Promise<Account> {
   return handleResponse<Account>(res)
 }
 
+export async function apiGetAccountTrades(login: string, limit = 1000): Promise<any> {
+  const res = await fetch(`${BASE}/accounts/${encodeURIComponent(login)}/trades?limit=${limit}`, {
+    headers: authHeaders(),
+  })
+  return handleResponse(res)
+}
+
 // ─── Performance ──────────────────────────────────────────────
 export async function apiGetPerformance(login: string, limit = 500): Promise<PerformanceSummary> {
   const res = await fetch(`${BASE}/performance/${encodeURIComponent(login)}?limit=${limit}`, {

@@ -4,12 +4,28 @@ from sqlalchemy.orm import Session
 import httpx
 from app.core.security import get_current_user, require_dev
 from app.db.session import get_db
-from app.models.models import Account, TelemetryHistory, Alert, User
+from app.models.models import Account, TelemetryHistory, Alert, User, ClosedTrade
 from app.schemas.schemas import AccountStatus, PerformanceSummary, EquityPoint, AlertResponse, ClosePositionRequest, AccountReportResponse, ReportSummary, ReportIndicators, ReportBalance, ReportChartPoint
 from app.services.audit import AuditService
 
 
 router = APIRouter()
+
+@router.get("/accounts/{login}/trades")
+async def get_account_trades(
+    login: str, limit: int = 1000,
+    db: Session = Depends(get_db), user: User = Depends(get_current_user)
+):
+    query = db.query(ClosedTrade).filter(ClosedTrade.account_login == login)
+    rows = query.order_by(ClosedTrade.close_time_utc.desc()).limit(limit).all()
+    
+    return [{
+        "ticket": r.ticket,
+        "symbol": r.symbol,
+        "type": r.trade_type,
+        "close_time_utc": r.close_time_utc.isoformat(),
+        "profit_net": r.profit_net
+    } for r in rows]
 
 @router.get("/accounts", response_model=List[AccountStatus])
 async def get_accounts(db: Session = Depends(get_db), user: User = Depends(get_current_user)):

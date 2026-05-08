@@ -8,6 +8,7 @@ import DrawdownChart from '../components/charts/DrawdownChart'
 import MT5ReportSection from '../components/accounts/MT5ReportSection'
 import { calcCAGR, calcSharpe, calcSortino, calcCalmar, maxDrawdown } from '../utils/metrics'
 import { fmtUSD, fmtPct } from '../types'
+import { apiGetPerformance, apiGetAccountTrades } from '../services/api'
 
 type RangeOption = '7d' | '30d' | '90d' | 'all'
 
@@ -17,8 +18,16 @@ export default function Analytics() {
   const [selectedLogin, setSelectedLogin] = useState<string>(activeAccounts[0]?.login || '')
   const [range, setRange] = useState<RangeOption>('90d')
 
+  const [trades, setTrades] = React.useState<any[]>([])
+
   const limit = range === 'all' ? 5000 : range === '90d' ? 2000 : range === '30d' ? 1000 : 500
   const { data: perf, isLoading } = usePerformance(selectedLogin, limit, !!selectedLogin && limit > 0)
+
+  React.useEffect(() => {
+    if (selectedLogin) {
+      apiGetAccountTrades(selectedLogin, limit).then(data => setTrades(data || [])).catch(console.error)
+    }
+  }, [selectedLogin, limit])
 
   const metrics = React.useMemo(() => {
     if (!perf || perf.equity_curve.length < 2) return null
@@ -176,13 +185,14 @@ export default function Analytics() {
 
           {/* Tabla de Historial de Operaciones */}
           <div className="rounded-xl border border-white/10 bg-slate-800/40 overflow-hidden">
-            <div className="px-4 py-3 border-b border-white/10">
+            <div className="px-4 py-3 border-b border-white/10 flex justify-between items-center">
               <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
-                Historial de Operaciones
+                Historial de Operaciones (Persistente)
               </h2>
+              <span className="text-xs text-slate-500">{trades.length} operaciones</span>
             </div>
             <div className="overflow-x-auto max-h-80">
-              {selectedAccountInfo?.status_data?.closed_trades && selectedAccountInfo.status_data.closed_trades.length > 0 ? (
+              {trades.length > 0 ? (
                 <table className="w-full text-xs">
                   <thead className="bg-slate-900/60">
                     <tr className="text-slate-400 border-b border-white/10">
@@ -194,7 +204,7 @@ export default function Analytics() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {selectedAccountInfo.status_data.closed_trades.map((t, idx) => (
+                    {trades.map((t, idx) => (
                       <tr key={idx} className="hover:bg-white/5">
                         <td className="py-1.5 px-3 text-slate-400">#{t.ticket}</td>
                         <td className="py-1.5 px-3 font-medium text-white">{t.symbol}</td>
@@ -219,7 +229,7 @@ export default function Analytics() {
                 </table>
               ) : (
                 <div className="py-8 text-center text-slate-500 text-sm">
-                  No hay operaciones cerradas recientes para mostrar.
+                  No hay operaciones históricas para este período.
                 </div>
               )}
             </div>

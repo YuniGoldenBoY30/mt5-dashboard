@@ -37,6 +37,16 @@ class TelemetryHistory(Base):
     prev_hash = Column(String, nullable=True)
     record_hash = Column(String, index=True)
 
+class ClosedTrade(Base):
+    __tablename__ = "closed_trades"
+    id = Column(Integer, primary_key=True, index=True)
+    account_login = Column(String, index=True)
+    ticket = Column(Integer, unique=True, index=True)
+    symbol = Column(String, index=True)
+    trade_type = Column(String)  # BUY, SELL
+    close_time_utc = Column(DateTime(timezone=True), index=True)
+    profit_net = Column(Float)
+
 class Alert(Base):
     __tablename__ = "alerts"
     id = Column(Integer, primary_key=True, index=True)
