@@ -8,7 +8,8 @@ import DrawdownChart from '../components/charts/DrawdownChart'
 import MT5ReportSection from '../components/accounts/MT5ReportSection'
 import { calcCAGR, calcSharpe, calcSortino, calcCalmar, maxDrawdown } from '../utils/metrics'
 import { fmtUSD, fmtPct } from '../types'
-import { apiGetPerformance, apiGetAccountTrades } from '../services/api'
+import { apiGetAccountTrades } from '../services/api'
+import { useQuery } from '@tanstack/react-query'
 
 type RangeOption = '7d' | '30d' | '90d' | 'all'
 
@@ -18,16 +19,16 @@ export default function Analytics() {
   const [selectedLogin, setSelectedLogin] = useState<string>(activeAccounts[0]?.login || '')
   const [range, setRange] = useState<RangeOption>('90d')
 
-  const [trades, setTrades] = React.useState<any[]>([])
-
   const limit = range === 'all' ? 5000 : range === '90d' ? 2000 : range === '30d' ? 1000 : 500
   const { data: perf, isLoading } = usePerformance(selectedLogin, limit, !!selectedLogin && limit > 0)
 
-  React.useEffect(() => {
-    if (selectedLogin) {
-      apiGetAccountTrades(selectedLogin, limit).then(data => setTrades(data || [])).catch(console.error)
-    }
-  }, [selectedLogin, limit])
+  const { data: tradesResponse } = useQuery({
+    queryKey: ['account_trades', selectedLogin, limit],
+    queryFn: () => apiGetAccountTrades(selectedLogin, limit),
+    enabled: !!selectedLogin,
+  })
+
+  const trades = tradesResponse || []
 
   const metrics = React.useMemo(() => {
     if (!perf || perf.equity_curve.length < 2) return null
@@ -204,7 +205,7 @@ export default function Analytics() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {trades.map((t, idx) => (
+                    {trades.map((t: any, idx: number) => (
                       <tr key={idx} className="hover:bg-white/5">
                         <td className="py-1.5 px-3 text-slate-400">#{t.ticket}</td>
                         <td className="py-1.5 px-3 font-medium text-white">{t.symbol}</td>
