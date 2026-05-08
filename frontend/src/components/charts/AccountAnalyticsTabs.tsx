@@ -215,7 +215,7 @@ export default function AccountAnalyticsTabs({
           </div>
         </div>
         <ResponsiveContainer width="100%" height={300}>
-          <ComposedChart data={profitLossData}>
+          <ComposedChart data={profitLossData} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
             <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={28} />
             <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} />
@@ -253,7 +253,7 @@ export default function AccountAnalyticsTabs({
           <StatPill value={`${shorts.length} (${trades.length ? ((shorts.length / trades.length) * 100).toFixed(1) : '0.0'}%)`} label="Short" tone="text-orange-400" />
         </div>
         <ResponsiveContainer width="100%" height={300}>
-          <ComposedChart data={longShortData}>
+          <ComposedChart data={longShortData} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
             <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={28} />
             <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} />
@@ -314,7 +314,7 @@ export default function AccountAnalyticsTabs({
         </div>
       </div>
       <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={symbolSeries.series}>
+        <LineChart data={symbolSeries.series} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
           <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={28} />
           <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} />
@@ -354,7 +354,7 @@ export default function AccountAnalyticsTabs({
         <div className="rounded-lg border border-white/5 bg-slate-900/30 p-3">
           <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">P&L Diario</div>
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={curve.map((p) => ({ time: formatDay(p.timestamp_utc), pnl: p.daily_pnl_usd ?? 0 }))}>
+            <AreaChart data={curve.map((p) => ({ time: formatDay(p.timestamp_utc), pnl: p.daily_pnl_usd ?? 0 }))} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
               <defs>
                 <linearGradient id="riskPnl" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.35} />

@@ -115,7 +115,7 @@ export default function AccountEvolutionChart({
   const pad = Math.max(range * 0.05, mode === 'absolute' ? 25 : 0.5)
   const domain: [number, number] = [Math.max(0, minVal - pad), maxVal + pad]
   const containerClass = compact ? '' : ''
-  const chartMargin = compact ? { top: 4, right: 4, left: 4, bottom: 0 } : { top: 12, right: 12, left: 10, bottom: 0 }
+  const chartMargin = compact ? { top: 4, right: 8, left: 4, bottom: 0 } : { top: 20, right: 20, left: 20, bottom: 20 }
 
   const currentPoint = chartData[chartData.length - 1]
   const currentBalanceAbs = currentPoint.balanceAbs as number

@@ -135,7 +135,7 @@ export default function MT5BalanceChart({ balanceData, initialBalance, height = 
       </div>
 
       <ResponsiveContainer width="100%" height={height}>
-        <LineChart data={chartData} margin={{ top: 8, right: 12, left: 18, bottom: 4 }}>
+        <LineChart data={chartData} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" strokeOpacity={0.05} vertical={false} />
           <XAxis dataKey="time" tick={{ fill: '#64748b', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={40} />
           <YAxis
