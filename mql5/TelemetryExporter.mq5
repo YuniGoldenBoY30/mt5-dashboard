@@ -13,11 +13,11 @@ input string   InpDashboardUrl = "https://trading.zenixtech.ai/api/v1/telemetry"
 input string   InpApiToken     = "snqAQ8OpesIP0p1Ur8Z-H0mk-M389qdg8c3dAX8D4OhMiXFi"; // VPS_SECRET_TOKEN (Bearer)
 input string   InpApiKey       = "ZjestbIjvZj9MLzvryprX8DwC5RSk_oYJx_0Dns_yDc9Mhuf"; // X_API_KEY (Firewall)
 input string   InpVpsId        = "";                                               // Identificador único del VPS (vacío = generar UUID/ID aleatorio por instancia)
-input string   InpAccountType  = "REAL";                                           // Tipo de Cuenta (REAL, DEMO)
-input string   InpAsset        = "";                                               // Activo Financiero (vacío = símbolo del gráfico)
-input string   InpBotName      = "";                                               // Nombre del Bot (vacío = detecta EA actual en gráfico)
-input string   InpTimeframe    = "Intraday";                                       // Temporalidad (Scalping, Intraday, Swing)
-input double   InpInitialBalance = 10000.0;                                        // Balance inicial (Auditoría de desempeño)
+// input string   InpAccountType  = "REAL";                                           // Tipo de Cuenta (REAL, DEMO) - Autodetectado
+input string   InpAsset        = "";                                               // Activo Financiero (vacío = autodetectar todos los gráficos)
+input string   InpBotName      = "";                                               // Nombre del Bot (vacío = autodetectar EAs)
+input string   InpTimeframe    = "Intraday";                                       // Temporalidad (Intraday, o vacío para autodetectar)
+input double   InpInitialBalance = 10000.0;                                        // Balance inicial manual solo como fallback si no puede detectarse del historial
 input int      InpUpdateFreq   = 2;                                                // Frecuencia de envio en segundos
 input int      InpStatsLookbackDays = 30;                                          // Ventana de historial para stats (días)
 input bool     InpUseHalfKelly = true;                                             // Kelly conservador (Half-Kelly)
@@ -66,6 +66,209 @@ void OnDeinit(const int reason)
   {
    EventKillTimer();
    Print("TelemetryExporter detenido.");
+  }
+
+ //+------------------------------------------------------------------+
+ //| Detectar tipo de cuenta (REAL, DEMO, CONTEST)                    |
+ //+------------------------------------------------------------------+
+string GetAccountType()
+  {
+   long trade_mode = AccountInfoInteger(ACCOUNT_TRADE_MODE);
+   if(trade_mode == ACCOUNT_TRADE_MODE_DEMO)
+      return "DEMO";
+   if(trade_mode == ACCOUNT_TRADE_MODE_REAL)
+      return "REAL";
+   if(trade_mode == ACCOUNT_TRADE_MODE_CONTEST)
+      return "CONTEST";
+   return "UNKNOWN";
+  }
+
+//+------------------------------------------------------------------+
+//| Identificar deals que afectan realmente el balance               |
+//+------------------------------------------------------------------+
+bool IsBalanceOperation(const long deal_type)
+  {
+   return (deal_type == DEAL_TYPE_BALANCE || deal_type == DEAL_TYPE_CREDIT);
+  }
+
+//+------------------------------------------------------------------+
+//| Identificar cierres reales de operaciones                        |
+//+------------------------------------------------------------------+
+bool IsClosedTradeEntry(const long deal_entry)
+  {
+   return (deal_entry == DEAL_ENTRY_OUT ||
+           deal_entry == DEAL_ENTRY_OUT_BY ||
+           deal_entry == DEAL_ENTRY_INOUT);
+  }
+
+//+------------------------------------------------------------------+
+//| Cambio neto de balance producido por un deal                     |
+//+------------------------------------------------------------------+
+double GetDealNetAmount(const ulong deal_ticket)
+  {
+   double profit = HistoryDealGetDouble(deal_ticket, DEAL_PROFIT);
+   double commission = HistoryDealGetDouble(deal_ticket, DEAL_COMMISSION);
+   double swap = HistoryDealGetDouble(deal_ticket, DEAL_SWAP);
+   return profit + commission + swap;
+  }
+
+//+------------------------------------------------------------------+
+//| Balance al inicio del historial ya seleccionado                  |
+//+------------------------------------------------------------------+
+double GetSelectedHistoryStartBalance()
+  {
+   double current_balance = AccountInfoDouble(ACCOUNT_BALANCE);
+   double selected_delta = 0.0;
+   int deals = HistoryDealsTotal();
+
+   for(int i = 0; i < deals; i++)
+     {
+      ulong deal_ticket = HistoryDealGetTicket(i);
+      if(deal_ticket == 0)
+         continue;
+
+      long deal_type = (long)HistoryDealGetInteger(deal_ticket, DEAL_TYPE);
+      long deal_entry = (long)HistoryDealGetInteger(deal_ticket, DEAL_ENTRY);
+      if(!IsBalanceOperation(deal_type) && !IsClosedTradeEntry(deal_entry))
+         continue;
+
+      selected_delta += GetDealNetAmount(deal_ticket);
+     }
+
+   return current_balance - selected_delta;
+  }
+
+//+------------------------------------------------------------------+
+//| Detectar balance inicial real desde el historial completo        |
+//+------------------------------------------------------------------+
+double DetectInitialBalance(bool &has_balance_operations)
+  {
+   has_balance_operations = false;
+
+   if(!HistorySelect(0, TimeCurrent()))
+      return InpInitialBalance;
+
+   int deals = HistoryDealsTotal();
+   if(deals <= 0)
+      return InpInitialBalance;
+
+   double initial_funding = 0.0;
+   bool saw_trade_activity = false;
+   double current_balance = AccountInfoDouble(ACCOUNT_BALANCE);
+   double total_delta = 0.0;
+
+   for(int i = 0; i < deals; i++)
+     {
+      ulong deal_ticket = HistoryDealGetTicket(i);
+      if(deal_ticket == 0)
+         continue;
+
+      long deal_type = (long)HistoryDealGetInteger(deal_ticket, DEAL_TYPE);
+      long deal_entry = (long)HistoryDealGetInteger(deal_ticket, DEAL_ENTRY);
+      double deal_net = GetDealNetAmount(deal_ticket);
+
+      if(IsBalanceOperation(deal_type))
+        {
+         has_balance_operations = true;
+         if(!saw_trade_activity)
+            initial_funding += deal_net;
+        }
+
+      if(IsBalanceOperation(deal_type) || IsClosedTradeEntry(deal_entry))
+         total_delta += deal_net;
+
+      if(deal_entry == DEAL_ENTRY_IN ||
+         deal_entry == DEAL_ENTRY_OUT ||
+         deal_entry == DEAL_ENTRY_OUT_BY ||
+         deal_entry == DEAL_ENTRY_INOUT)
+         saw_trade_activity = true;
+     }
+
+   if(initial_funding > 0.0)
+      return initial_funding;
+
+   double reconstructed_balance = current_balance - total_delta;
+   if(reconstructed_balance > 0.0)
+      return reconstructed_balance;
+
+   if(current_balance > 0.0)
+      return current_balance;
+
+   return InpInitialBalance;
+  }
+
+ //+------------------------------------------------------------------+
+ //| Detectar EAs activos, sus símbolos y temporalidades              |
+ //+------------------------------------------------------------------+
+void DetectActiveBots(string &out_bots, string &out_assets, string &out_timeframes)
+  {
+   out_bots = "";
+   out_assets = "";
+   out_timeframes = "";
+
+   long curr_chart = ChartFirst();
+   int limit = 0;
+   
+   while(curr_chart >= 0 && limit < 100)
+     {
+      string expert_name = ChartGetString(curr_chart, CHART_EXPERT_NAME);
+      
+      // Ignorar TelemetryExporter para dar prioridad a los bots de trading
+      if(StringLen(expert_name) > 0 && StringFind(expert_name, "Telemetry") < 0)
+        {
+         string symbol = ChartSymbol(curr_chart);
+         int period = (int)ChartPeriod(curr_chart);
+         string period_str = EnumToString((ENUM_TIMEFRAMES)period);
+         StringReplace(period_str, "PERIOD_", "");
+         
+         if(StringFind(out_bots, expert_name) < 0)
+           {
+            if(StringLen(out_bots) > 0) out_bots += " + ";
+            out_bots += expert_name;
+           }
+           
+         if(StringFind(out_assets, symbol) < 0)
+           {
+            if(StringLen(out_assets) > 0) out_assets += " + ";
+            out_assets += symbol;
+           }
+           
+         if(StringFind(out_timeframes, period_str) < 0)
+           {
+            if(StringLen(out_timeframes) > 0) out_timeframes += " + ";
+            out_timeframes += period_str;
+           }
+        }
+      curr_chart = ChartNext(curr_chart);
+      limit++;
+     }
+     
+   // Fallbacks (Inputs manuales o chart actual si no hay otros EAs)
+   if(StringLen(out_bots) == 0)
+     {
+      out_bots = (StringLen(InpBotName) > 0) ? InpBotName : ChartGetString(ChartID(), CHART_EXPERT_NAME);
+      if(StringLen(out_bots) == 0) out_bots = "QuantFib EA";
+     }
+   else if(StringLen(InpBotName) > 0) out_bots = InpBotName; // Override si se forzó
+     
+   if(StringLen(out_assets) == 0)
+     {
+      out_assets = (StringLen(InpAsset) > 0) ? InpAsset : Symbol();
+     }
+   else if(StringLen(InpAsset) > 0) out_assets = InpAsset; // Override si se forzó
+     
+   if(StringLen(out_timeframes) == 0)
+     {
+      int period = (int)ChartPeriod(ChartID());
+      string period_str = EnumToString((ENUM_TIMEFRAMES)period);
+      StringReplace(period_str, "PERIOD_", "");
+      
+      // Si el input original no era el por defecto, respetarlo, sino usar el real del gráfico
+      if(StringLen(InpTimeframe) > 0 && InpTimeframe != "Intraday" && InpTimeframe != "Scalping" && InpTimeframe != "Swing") 
+         out_timeframes = InpTimeframe;
+      else
+         out_timeframes = period_str;
+     }
   }
 
  //+------------------------------------------------------------------+
@@ -219,8 +422,11 @@ void CalculateTradeStats(double &win_rate,
    double gross_win = 0.0;
    double gross_loss = 0.0;
 
-   // Equity curve simple basada en resultado neto de deals cerrados
-   double initial_balance = AccountInfoDouble(ACCOUNT_BALANCE);
+   // Reconstruir balance al inicio de la ventana analizada
+   double initial_balance = GetSelectedHistoryStartBalance();
+   if(initial_balance <= 0.0)
+      initial_balance = AccountInfoDouble(ACCOUNT_BALANCE);
+
    double equity_curve = initial_balance;
    double peak_equity = equity_curve;
 
@@ -231,13 +437,10 @@ void CalculateTradeStats(double &win_rate,
          continue;
 
       long deal_entry = (long)HistoryDealGetInteger(deal_ticket, DEAL_ENTRY);
-      if(deal_entry != DEAL_ENTRY_OUT)
+      if(!IsClosedTradeEntry(deal_entry))
          continue;
 
-      double profit = HistoryDealGetDouble(deal_ticket, DEAL_PROFIT);
-      double commission = HistoryDealGetDouble(deal_ticket, DEAL_COMMISSION);
-      double swap = HistoryDealGetDouble(deal_ticket, DEAL_SWAP);
-      double net = profit + commission + swap;
+      double net = GetDealNetAmount(deal_ticket);
 
       if(net > 0.0)
         {
@@ -319,7 +522,7 @@ string BuildClosedTradesJson(const int limit_count)
          continue;
 
       long deal_entry = (long)HistoryDealGetInteger(deal_ticket, DEAL_ENTRY);
-      if(deal_entry != DEAL_ENTRY_OUT)
+      if(!IsClosedTradeEntry(deal_entry))
          continue;
 
       string symbol = HistoryDealGetString(deal_ticket, DEAL_SYMBOL);
@@ -332,10 +535,7 @@ string BuildClosedTradesJson(const int limit_count)
       StringReplace(close_time, " ", "T");
       close_time += "Z";
 
-      double profit = HistoryDealGetDouble(deal_ticket, DEAL_PROFIT);
-      double commission = HistoryDealGetDouble(deal_ticket, DEAL_COMMISSION);
-      double swap = HistoryDealGetDouble(deal_ticket, DEAL_SWAP);
-      double net = profit + commission + swap;
+      double net = GetDealNetAmount(deal_ticket);
 
       if(sent > 0)
          json += ",";
@@ -386,7 +586,9 @@ void CheckAndSyncHistory()
       return;
      }
 
-   double running_balance = 0;
+   bool has_balance_operations = false;
+   double actual_initial_balance = DetectInitialBalance(has_balance_operations);
+   double running_balance = has_balance_operations ? 0.0 : actual_initial_balance;
    string bulk_json = "[";
    int count = 0;
    int sent_count = 0;
@@ -396,10 +598,12 @@ void CheckAndSyncHistory()
       ulong ticket = HistoryDealGetTicket(i);
       if(ticket <= 0) continue;
 
-      double profit = HistoryDealGetDouble(ticket, DEAL_PROFIT);
-      double comm   = HistoryDealGetDouble(ticket, DEAL_COMMISSION);
-      double swap   = HistoryDealGetDouble(ticket, DEAL_SWAP);
-      running_balance += (profit + comm + swap);
+      long deal_type = (long)HistoryDealGetInteger(ticket, DEAL_TYPE);
+      long deal_entry = (long)HistoryDealGetInteger(ticket, DEAL_ENTRY);
+      if(!IsBalanceOperation(deal_type) && !IsClosedTradeEntry(deal_entry))
+         continue;
+
+      running_balance += GetDealNetAmount(ticket);
 
       datetime time_deal = (datetime)HistoryDealGetInteger(ticket, DEAL_TIME);
       string ts = TimeToString(time_deal, TIME_DATE|TIME_MINUTES|TIME_SECONDS);
@@ -409,17 +613,8 @@ void CheckAndSyncHistory()
 
       if(count > 0) bulk_json += ",";
       
-      // Determinar el nombre del bot automáticamente si InpBotName está vacío
-      string actual_bot_name = InpBotName;
-      if(StringLen(actual_bot_name) == 0)
-        {
-         long chart_id = ChartID();
-         string expert_name = ChartGetString(chart_id, CHART_EXPERT_NAME);
-         if(StringLen(expert_name) > 0)
-            actual_bot_name = expert_name;
-         else
-            actual_bot_name = "QuantFib EA"; // Fallback por defecto
-        }
+      string actual_bot_name, actual_asset, actual_timeframe;
+      DetectActiveBots(actual_bot_name, actual_asset, actual_timeframe);
 
       bulk_json += StringFormat("{"
          "\"vps_id\":\"%s\","
@@ -443,10 +638,10 @@ void CheckAndSyncHistory()
             "\"active_mode\":\"SYNC\","
             "\"positions\":[]"
          "}]"
-      "}", g_vps_id, ts, AccountInfoInteger(ACCOUNT_LOGIN), AccountInfoString(ACCOUNT_COMPANY), 
+         "}", g_vps_id, ts, AccountInfoInteger(ACCOUNT_LOGIN), AccountInfoString(ACCOUNT_COMPANY), 
           AccountInfoInteger(ACCOUNT_LOGIN), AccountInfoString(ACCOUNT_SERVER), 
-          AccountInfoString(ACCOUNT_NAME), InpAccountType, (StringLen(InpAsset) > 0 ? InpAsset : Symbol()), 
-          actual_bot_name, InpTimeframe, InpInitialBalance, running_balance, running_balance);
+          AccountInfoString(ACCOUNT_NAME), GetAccountType(), actual_asset, 
+          actual_bot_name, actual_timeframe, actual_initial_balance, running_balance, running_balance);
 
       count++;
 
@@ -500,7 +695,10 @@ void SendTelemetry()
    // 1. Recolectar metricas de la cuenta
    long   account_id   = AccountInfoInteger(ACCOUNT_LOGIN);
    string broker       = AccountInfoString(ACCOUNT_COMPANY);
+   string server       = AccountInfoString(ACCOUNT_SERVER);
    string acc_name     = AccountInfoString(ACCOUNT_NAME);
+   bool has_balance_operations = false;
+   double actual_initial_balance = DetectInitialBalance(has_balance_operations);
    double balance      = AccountInfoDouble(ACCOUNT_BALANCE);
    double equity       = AccountInfoDouble(ACCOUNT_EQUITY);
    double margin       = AccountInfoDouble(ACCOUNT_MARGIN);
@@ -573,19 +771,8 @@ void SendTelemetry()
    StringReplace(timestamp, " ", "T");
    timestamp += "Z"; // Formato ISO 8601 UTC
    
-   string actual_asset = (StringLen(InpAsset) > 0) ? InpAsset : Symbol();
-   
-   // Determinar el nombre del bot automáticamente si InpBotName está vacío
-   string actual_bot_name = InpBotName;
-   if(StringLen(actual_bot_name) == 0)
-     {
-      long chart_id = ChartID();
-      string expert_name = ChartGetString(chart_id, CHART_EXPERT_NAME);
-      if(StringLen(expert_name) > 0)
-         actual_bot_name = expert_name;
-      else
-         actual_bot_name = "QuantFib EA"; // Fallback por defecto
-     }
+   string actual_bot_name, actual_asset, actual_timeframe;
+   DetectActiveBots(actual_bot_name, actual_asset, actual_timeframe);
    
    string payload = StringFormat("{"
                                  "\"vps_id\":\"%s\","
@@ -593,6 +780,7 @@ void SendTelemetry()
                                  "\"accounts\":[{"
                                     "\"account_id\":%I64u,"
                                     "\"broker\":\"%s\","
+                                    "\"server\":\"%s\","
                                     "\"name\":\"%s\","
                                     "\"account_type\":\"%s\","
                                     "\"asset\":\"%s\","
@@ -618,7 +806,7 @@ void SendTelemetry()
                                     "\"positions\":%s"
                                  "}]"
                                  "}",
-                                 g_vps_id, timestamp, account_id, broker, acc_name, InpAccountType, actual_asset, actual_bot_name, InpTimeframe, InpInitialBalance, balance, equity, margin, free_margin, margin_level, drawdown_pct,
+                                 g_vps_id, timestamp, account_id, broker, server, acc_name, GetAccountType(), actual_asset, actual_bot_name, actual_timeframe, actual_initial_balance, balance, equity, margin, free_margin, margin_level, drawdown_pct,
                                  regime, active_mode, daily_pnl_usd, open_risk_pct, win_rate, profit_factor, kelly_fraction,
                                  n_trades_cycle, max_drawdown_pct, closed_trades_json, positions_json);
 
