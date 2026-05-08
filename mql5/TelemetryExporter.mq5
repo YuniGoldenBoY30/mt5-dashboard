@@ -592,6 +592,7 @@ void CheckAndSyncHistory()
    string bulk_json = "[";
    int count = 0;
    int sent_count = 0;
+   bool sync_failed = false;
 
    for(int i=0; i<total_deals; i++)
      {
@@ -653,9 +654,20 @@ void CheckAndSyncHistory()
            {
             sent_count += count;
            }
+         else
+           {
+            sync_failed = true;
+           }
          bulk_json = "[";
          count = 0;
         }
+     }
+
+   if(sync_failed)
+     {
+      PrintFormat("TELEMETRY: Sincronización incompleta. %d registros procesados. Se reintentará en el siguiente ciclo.", sent_count);
+      history_synced = false;
+      return;
      }
 
    PrintFormat("TELEMETRY: Sincronización completada. %d registros procesados.", sent_count);
@@ -666,6 +678,26 @@ void CheckAndSyncHistory()
 //+------------------------------------------------------------------+
 //| Enviar bloque al endpoint /bulk                                  |
 //+------------------------------------------------------------------+
+string BuildBulkTelemetryUrl()
+  {
+   string url = InpDashboardUrl;
+
+   while(StringLen(url) > 0 && StringSubstr(url, StringLen(url) - 1, 1) == "/")
+      url = StringSubstr(url, 0, StringLen(url) - 1);
+
+   string telemetry_suffix = "/api/v1/telemetry";
+   int telemetry_pos = StringFind(url, telemetry_suffix);
+   if(telemetry_pos >= 0)
+      return url + "/bulk";
+
+   string api_suffix = "/api/v1";
+   int api_pos = StringFind(url, api_suffix);
+   if(api_pos >= 0)
+      return url + "/telemetry/bulk";
+
+   return url + "/api/v1/telemetry/bulk";
+  }
+
 bool SendBulkToDashboard(string json_body)
   {
    char data[];
@@ -673,7 +705,7 @@ bool SendBulkToDashboard(string json_body)
    string result_headers;
    StringToCharArray(json_body, data, 0, WHOLE_ARRAY, CP_UTF8);
    
-   string url = StringFormat("%s/api/v1/telemetry/bulk", InpDashboardUrl);
+   string url = BuildBulkTelemetryUrl();
    string headers = StringFormat("Content-Type: application/json\r\n"
                                  "X-API-KEY: %s\r\n"
                                  "Authorization: Bearer %s\r\n", 
