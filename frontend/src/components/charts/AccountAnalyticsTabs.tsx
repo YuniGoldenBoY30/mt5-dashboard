@@ -180,7 +180,7 @@ export default function AccountAnalyticsTabs({
           <StatPill value={(summaryStats.growthPct > 0 ? '+' : '') + fmtPct(summaryStats.growthPct)} label="Growth" tone={summaryStats.growthPct >= 0 ? 'text-green-400' : 'text-red-400'} />
           <StatPill value={fmtPct(summaryStats.maxDrawdown)} label="Drawdown" tone="text-yellow-400" />
         </div>
-        <div className="pt-2">
+        <div className="pt-2 px-1 sm:px-2 lg:px-3 pb-2">
           <AccountEvolutionChart
             data={curve}
             initialBalance={safeInitial}
@@ -354,7 +354,6 @@ export default function AccountAnalyticsTabs({
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="rounded-lg border border-white/5 bg-slate-900/30 p-3">
-          <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Drawdown</div>
           <DrawdownChart data={curve} height={220} />
         </div>
         <div className="rounded-lg border border-white/5 bg-slate-900/30 p-3">
@@ -397,33 +396,40 @@ export default function AccountAnalyticsTabs({
     }
   }
 
+  if (summaryOnly) {
+    return (
+      <div className="w-full">
+        {renderSummary()}
+      </div>
+    )
+  }
+
   return (
     <div className="rounded-xl border border-white/10 bg-slate-800/40 overflow-hidden">
       <div className="border-b border-white/10 px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm font-semibold text-slate-300">{title}</div>
-          {!summaryOnly && (
-            <div className="flex flex-nowrap overflow-x-auto gap-8">
-              {TAB_OPTIONS.map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`pb-3 text-sm font-medium transition-all relative whitespace-nowrap ${activeTab === tab.key ? 'text-cyan-400' : 'text-slate-400 hover:text-slate-200'}`}
-                >
-                  {tab.label}
-                  {activeTab === tab.key && (
-                    <div className="absolute bottom-0 left-0 w-full h-[2px] bg-cyan-400 rounded-t-full shadow-[0_-2px_8px_rgba(34,211,238,0.5)]" />
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="flex flex-nowrap overflow-x-auto gap-8">
+            {TAB_OPTIONS.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={`pb-3 text-sm font-medium transition-all relative whitespace-nowrap ${activeTab === tab.key ? 'text-cyan-400' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                {tab.label}
+                {activeTab === tab.key && (
+                  <div className="absolute bottom-0 left-0 w-full h-[2px] bg-cyan-400 rounded-t-full shadow-[0_-2px_8px_rgba(34,211,238,0.5)]" />
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       <div className="pt-2">
-        {summaryOnly ? renderSummary() : renderActiveTab()}
+        {renderActiveTab()}
       </div>
     </div>
   )
+
 }
