@@ -115,8 +115,8 @@ export default function Dashboard() {
       </div>
 
       {summaryAccount && summaryPerf?.equity_curve?.length ? (
-        <div className="rounded-xl border border-white/10 bg-slate-800/40 overflow-hidden">
-          <div className="border-b border-white/10 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="bg-[#111827]/40 border border-white/[0.04] rounded-2xl overflow-hidden backdrop-blur-sm">
+          <div className="border-b border-white/[0.04] px-4 py-3 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">Summary</h2>
               <div className="text-xs text-slate-500 mt-1">Evolución principal de la cuenta seleccionada</div>
@@ -136,7 +136,7 @@ export default function Dashboard() {
               </select>
             </div>
           </div>
-          <div className="p-4">
+          <div className="p-6">
             <AccountAnalyticsTabs
               curve={summaryPerf.equity_curve}
               trades={summaryTrades}

@@ -134,23 +134,23 @@ export default function AccountEvolutionChart({
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               {title}
             </div>
-            <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-              <span>`0` = balance inicial {mode === 'absolute' ? `$${formatCurrency(safeInitialBalance)}` : '100% base'}</span>
+            <div className="text-xs text-slate-500 flex items-center gap-2 mt-1">
+              <span><span className="text-slate-400">Línea base (0):</span> {mode === 'absolute' ? `$${formatCurrency(safeInitialBalance)}` : '100%'}</span>
               <span>•</span>
               <span className={`font-medium ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
                 Actual: {isPositive ? '+' : '-'}{currentValStr}
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {/* Time Range Selector */}
-            <div className="flex rounded-lg border border-white/10 bg-slate-800/70 p-1 text-xs">
+            <div className="flex bg-slate-900/50 rounded-lg p-0.5 border border-white/[0.04]">
               {(['today', '7d', '30d', 'all'] as const).map(tr => (
                 <button
                   key={tr}
                   type="button"
                   onClick={() => setTimeRange(tr)}
-                  className={`rounded-md px-2 py-1 transition-colors ${timeRange === tr ? 'bg-cyan-500/20 text-cyan-400 font-medium' : 'text-slate-400 hover:text-slate-200'}`}
+                  className={`rounded-md px-3 py-1.5 transition-all text-xs font-medium ${timeRange === tr ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
                 >
                   {tr === 'today' ? 'Hoy' : tr === 'all' ? 'Completo' : tr}
                 </button>
@@ -158,18 +158,18 @@ export default function AccountEvolutionChart({
             </div>
 
             {allowModeToggle && (
-              <div className="flex rounded-lg border border-white/10 bg-slate-800/70 p-1 text-xs">
+              <div className="flex bg-slate-900/50 rounded-lg p-0.5 border border-white/[0.04]">
                 <button
                   type="button"
                   onClick={() => setMode('absolute')}
-                  className={`rounded-md px-2.5 py-1 transition-colors ${mode === 'absolute' ? 'bg-cyan-500 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
+                  className={`rounded-md px-3 py-1.5 transition-all text-xs font-medium ${mode === 'absolute' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
                 >
                   USD
                 </button>
                 <button
                   type="button"
                   onClick={() => setMode('percent')}
-                  className={`rounded-md px-2.5 py-1 transition-colors ${mode === 'percent' ? 'bg-cyan-500 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
+                  className={`rounded-md px-3 py-1.5 transition-all text-xs font-medium ${mode === 'percent' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
                 >
                   %
                 </button>
@@ -181,7 +181,7 @@ export default function AccountEvolutionChart({
 
       <ResponsiveContainer width="100%" height={height}>
         <LineChart data={chartData} margin={chartMargin}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" strokeOpacity={0.03} vertical={false} />
           <XAxis
             dataKey="time"
             tick={{ fill: '#94a3b8', fontSize: compact ? 9 : 10 }}

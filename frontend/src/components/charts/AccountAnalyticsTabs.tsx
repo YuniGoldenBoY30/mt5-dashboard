@@ -408,22 +408,25 @@ export default function AccountAnalyticsTabs({
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm font-semibold text-slate-300">{title}</div>
           {!summaryOnly && (
-            <div className="flex flex-wrap gap-5 text-sm">
+            <div className="flex flex-nowrap overflow-x-auto gap-8">
               {TAB_OPTIONS.map((tab) => (
                 <button
                   key={tab.key}
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
-                  className={`border-b-2 pb-2 transition-colors ${activeTab === tab.key ? 'border-cyan-400 text-white' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+                  className={`pb-3 text-sm font-medium transition-all relative whitespace-nowrap ${activeTab === tab.key ? 'text-cyan-400' : 'text-slate-400 hover:text-slate-200'}`}
                 >
                   {tab.label}
+                  {activeTab === tab.key && (
+                    <div className="absolute bottom-0 left-0 w-full h-[2px] bg-cyan-400 rounded-t-full shadow-[0_-2px_8px_rgba(34,211,238,0.5)]" />
+                  )}
                 </button>
               ))}
             </div>
           )}
         </div>
       </div>
-      <div className="p-4">
+      <div className="pt-2">
         {summaryOnly ? renderSummary() : renderActiveTab()}
       </div>
     </div>
