@@ -215,10 +215,10 @@ export default function AccountAnalyticsTabs({
           </div>
         </div>
         <ResponsiveContainer width="100%" height={300}>
-          <ComposedChart data={profitLossData} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
+          <ComposedChart data={profitLossData} margin={{ top: 20, right: 30, left: 30, bottom: 20 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
             <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={28} />
-            <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} width={45} />
             <Tooltip
               contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }}
               formatter={(value: number, name: string) => {
@@ -253,10 +253,10 @@ export default function AccountAnalyticsTabs({
           <StatPill value={`${shorts.length} (${trades.length ? ((shorts.length / trades.length) * 100).toFixed(1) : '0.0'}%)`} label="Short" tone="text-orange-400" />
         </div>
         <ResponsiveContainer width="100%" height={300}>
-          <ComposedChart data={longShortData} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
+          <ComposedChart data={longShortData} margin={{ top: 20, right: 30, left: 30, bottom: 20 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
             <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={28} />
-            <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} width={45} />
             <Tooltip
               contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }}
               formatter={(value: number, name: string) => {
@@ -314,10 +314,10 @@ export default function AccountAnalyticsTabs({
         </div>
       </div>
       <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={symbolSeries.series} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
+        <LineChart data={symbolSeries.series} margin={{ top: 20, right: 30, left: 30, bottom: 20 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
           <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={28} />
-          <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} tickLine={false} axisLine={false} width={45} />
           <Tooltip
             contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }}
             formatter={(value: number, name: string) => [metricMode === 'money' ? fmtUSD(value) : value, name.replace('_money', '').replace('_deals', '')]}
