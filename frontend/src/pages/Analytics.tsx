@@ -3,9 +3,8 @@ import { TrendingUp, Activity, BarChart3 } from 'lucide-react'
 import { useAccountsWebSocket } from '../hooks/useWebSocket'
 import { usePerformance } from '../hooks/useAccounts'
 import StatCard from '../components/StatCard'
-import AccountEvolutionChart from '../components/charts/AccountEvolutionChart'
-import DrawdownChart from '../components/charts/DrawdownChart'
 import MT5ReportSection from '../components/accounts/MT5ReportSection'
+import AccountAnalyticsTabs from '../components/charts/AccountAnalyticsTabs'
 import { calcCAGR, calcSharpe, calcSortino, calcCalmar, maxDrawdown } from '../utils/metrics'
 import { fmtUSD, fmtPct, type ClosedTrade } from '../types'
 import { apiGetAccountTrades } from '../services/api'
@@ -147,27 +146,12 @@ export default function Analytics() {
             </div>
           )}
 
-          {/* Equity + Drawdown */}
-          <div className="space-y-4">
-            <div className="rounded-xl border border-white/10 bg-slate-800/40 backdrop-blur px-4 py-4">
-              <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-4">
-                Equity Curve — {selectedLogin}
-              </h2>
-              <AccountEvolutionChart
-                data={filteredCurve}
-                initialBalance={selectedAccountInfo?.status_data?.initial_balance}
-                height={280}
-                title="Evolución de la cuenta"
-              />
-            </div>
-
-            <div className="rounded-xl border border-white/10 bg-slate-800/40 backdrop-blur px-4 py-4">
-              <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-2">
-                Drawdown
-              </h2>
-              <DrawdownChart data={filteredCurve} height={140} />
-            </div>
-          </div>
+          <AccountAnalyticsTabs
+            curve={filteredCurve}
+            trades={filteredTrades}
+            initialBalance={selectedAccountInfo?.status_data?.initial_balance}
+            title={`Analytics — ${selectedLogin}`}
+          />
 
           {/* Tabla de snapshots recientes */}
           <div className="rounded-xl border border-white/10 bg-slate-800/40 overflow-hidden">

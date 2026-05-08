@@ -58,22 +58,44 @@ export default function AccountEvolutionChart({
   defaultMode = 'absolute',
 }: Props) {
   const [mode, setMode] = useState<ViewMode>(defaultMode)
+  const [timeRange, setTimeRange] = useState<'today'|'7d'|'30d'|'all'>('all')
 
   const safeInitialBalance = initialBalance && initialBalance > 0
     ? initialBalance
     : data[0]?.balance
 
-  const chartData = useMemo(() => {
-    if (!safeInitialBalance || !data.length) return []
+  const filteredData = useMemo(() => {
+    if (timeRange === 'all' || !data.length) return data;
+    const now = new Date();
+    let cutoff = new Date(0);
+    if (timeRange === 'today') {
+      cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (timeRange === '7d') {
+      cutoff = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
+    } else if (timeRange === '30d') {
+      cutoff = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
+    }
+    return data.filter(d => new Date(d.timestamp_utc) >= cutoff);
+  }, [data, timeRange]);
 
-    return data.map((point) => ({
+  const maxDrawdownPoint = useMemo(() => {
+    if (!filteredData.length) return null;
+    return filteredData.reduce((max, p) => p.drawdown_pct > max.drawdown_pct ? p : max, filteredData[0]);
+  }, [filteredData]);
+
+  const chartData = useMemo(() => {
+    if (!safeInitialBalance || !filteredData.length) return []
+
+    return filteredData.map((point) => ({
       time: formatTime(point.timestamp_utc),
       balanceAbs: point.balance - safeInitialBalance,
       equityAbs: point.equity - safeInitialBalance,
       balancePct: ((point.balance / safeInitialBalance) - 1) * 100,
       equityPct: ((point.equity / safeInitialBalance) - 1) * 100,
+      isMaxDd: point === maxDrawdownPoint,
+      rawPoint: point,
     }))
-  }, [data, safeInitialBalance])
+  }, [filteredData, safeInitialBalance, maxDrawdownPoint])
 
   if (!chartData.length || !safeInitialBalance) {
     return (
@@ -93,38 +115,67 @@ export default function AccountEvolutionChart({
   const pad = Math.max(range * 0.08, mode === 'absolute' ? 25 : 0.5)
   const domain: [number, number] = [minVal - pad, maxVal + pad]
   const containerClass = compact ? '' : 'rounded-lg border border-white/5 bg-slate-900/40 p-3'
-  const chartMargin = compact ? { top: 4, right: 4, left: 4, bottom: 0 } : { top: 8, right: 12, left: 10, bottom: 0 }
+  const chartMargin = compact ? { top: 4, right: 4, left: 4, bottom: 0 } : { top: 12, right: 12, left: 10, bottom: 0 }
+
+  const currentPoint = chartData[chartData.length - 1]
+  const currentVal = currentPoint[equityKey as keyof typeof currentPoint] as number
+  const isPositive = currentVal >= 0
+  const currentValStr = mode === 'absolute' 
+    ? `$${formatCurrency(Math.abs(currentVal))}` 
+    : `${formatPercent(Math.abs(currentVal))}%`
+
+  const maxDrawdownTime = maxDrawdownPoint ? formatTime(maxDrawdownPoint.timestamp_utc) : null;
 
   return (
     <div className={containerClass}>
       {!compact && (
-        <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               {title}
             </div>
-            <div className="text-xs text-slate-500">
-              `0` = balance inicial {mode === 'absolute' ? `$${formatCurrency(safeInitialBalance)}` : '100% base'}
+            <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
+              <span>`0` = balance inicial {mode === 'absolute' ? `$${formatCurrency(safeInitialBalance)}` : '100% base'}</span>
+              <span>•</span>
+              <span className={`font-medium ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                Actual: {isPositive ? '+' : '-'}{currentValStr}
+              </span>
             </div>
           </div>
-          {allowModeToggle && (
+          <div className="flex items-center gap-3">
+            {/* Time Range Selector */}
             <div className="flex rounded-lg border border-white/10 bg-slate-800/70 p-1 text-xs">
-              <button
-                type="button"
-                onClick={() => setMode('absolute')}
-                className={`rounded-md px-2.5 py-1 transition-colors ${mode === 'absolute' ? 'bg-cyan-500 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
-              >
-                USD
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode('percent')}
-                className={`rounded-md px-2.5 py-1 transition-colors ${mode === 'percent' ? 'bg-cyan-500 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
-              >
-                %
-              </button>
+              {(['today', '7d', '30d', 'all'] as const).map(tr => (
+                <button
+                  key={tr}
+                  type="button"
+                  onClick={() => setTimeRange(tr)}
+                  className={`rounded-md px-2 py-1 transition-colors ${timeRange === tr ? 'bg-cyan-500/20 text-cyan-400 font-medium' : 'text-slate-400 hover:text-slate-200'}`}
+                >
+                  {tr === 'today' ? 'Hoy' : tr === 'all' ? 'Completo' : tr}
+                </button>
+              ))}
             </div>
-          )}
+
+            {allowModeToggle && (
+              <div className="flex rounded-lg border border-white/10 bg-slate-800/70 p-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setMode('absolute')}
+                  className={`rounded-md px-2.5 py-1 transition-colors ${mode === 'absolute' ? 'bg-cyan-500 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
+                >
+                  USD
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('percent')}
+                  className={`rounded-md px-2.5 py-1 transition-colors ${mode === 'percent' ? 'bg-cyan-500 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
+                >
+                  %
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -153,23 +204,35 @@ export default function AccountEvolutionChart({
               borderRadius: 8,
               fontSize: 12,
             }}
-            labelStyle={{ color: '#94a3b8' }}
+            labelStyle={{ color: '#94a3b8', marginBottom: 4 }}
             formatter={(value: number, name: string) => {
               const label = name === balanceKey ? 'Balance' : 'Equity'
-              return [mode === 'absolute' ? `$${formatCurrency(value)}` : `${formatPercent(value)}%`, label]
+              const prefix = value > 0 ? '+' : ''
+              return [mode === 'absolute' ? `${prefix}$${formatCurrency(value)}` : `${prefix}${formatPercent(value)}%`, label]
             }}
           />
           {showLegend && !compact && (
             <Legend
               wrapperStyle={{ fontSize: '12px' }}
-              formatter={(value) => <span style={{ color: '#cbd5e1' }}>{value}</span>}
+              formatter={(value) => <span style={{ color: '#cbd5e1' }}>{value === balanceKey ? 'Balance' : 'Equity'}</span>}
             />
           )}
           <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" />
+          
+          {/* Max Drawdown Highlight */}
+          {!compact && maxDrawdownTime && (
+            <ReferenceLine 
+              x={maxDrawdownTime} 
+              stroke="#ef4444" 
+              strokeDasharray="3 3" 
+              label={{ position: 'insideTopRight', value: 'Max DD', fill: '#ef4444', fontSize: 10, offset: 10 }} 
+            />
+          )}
+
           <Line
             type="monotone"
             dataKey={balanceKey}
-            name="Balance"
+            name={balanceKey}
             stroke="#3b82f6"
             strokeWidth={2}
             dot={false}
@@ -178,7 +241,7 @@ export default function AccountEvolutionChart({
           <Line
             type="monotone"
             dataKey={equityKey}
-            name="Equity"
+            name={equityKey}
             stroke="#22c55e"
             strokeWidth={2}
             dot={false}

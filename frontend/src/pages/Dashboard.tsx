@@ -1,21 +1,24 @@
 import React, { useMemo, useState } from 'react'
 import { DollarSign, TrendingDown, Activity, Wifi, Filter } from 'lucide-react'
 import { useAccountsWebSocket } from '../hooks/useWebSocket'
+import { usePerformance } from '../hooks/useAccounts'
 import AccountCard from '../components/accounts/AccountCard'
 import StatCard from '../components/StatCard'
 import ConnectionStatus from '../components/ConnectionStatus'
 import AlertsPanel from '../components/AlertsPanel'
 import { fmtUSD } from '../types'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { apiClosePosition } from '../services/api'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiClosePosition, apiGetAccountTrades } from '../services/api'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
+import AccountAnalyticsTabs from '../components/charts/AccountAnalyticsTabs'
 
 export default function Dashboard() {
   const { accounts, status } = useAccountsWebSocket()
   const qc = useQueryClient()
   
   const [accountTypeFilter, setAccountTypeFilter] = useState<'ALL' | 'REAL' | 'DEMO'>('ALL')
+  const [summaryLogin, setSummaryLogin] = useState<string>('')
 
   const filteredAccounts = useMemo(() => {
     return accounts.filter(a => {
@@ -24,6 +27,14 @@ export default function Dashboard() {
       return type === accountTypeFilter
     })
   }, [accounts, accountTypeFilter])
+
+  React.useEffect(() => {
+    if (!filteredAccounts.length) return
+    const stillExists = filteredAccounts.some((a) => a.login === summaryLogin)
+    if (!summaryLogin || !stillExists) {
+      setSummaryLogin(filteredAccounts[0].login)
+    }
+  }, [filteredAccounts, summaryLogin])
 
   // Agregados globales
   const summary = useMemo(() => {
@@ -38,6 +49,14 @@ export default function Dashboard() {
     const pausedAccounts = active.filter((a) => a.status_data?.active_mode === 'PAUSE').length
     return { totalEquity, totalBalance, totalPnl, maxDD, openPositions, pausedAccounts, count: active.length }
   }, [filteredAccounts])
+
+  const summaryAccount = filteredAccounts.find((a) => a.login === summaryLogin)
+  const { data: summaryPerf } = usePerformance(summaryLogin, 2000, !!summaryLogin)
+  const { data: summaryTrades = [] } = useQuery({
+    queryKey: ['dashboard_summary_trades', summaryLogin],
+    queryFn: () => apiGetAccountTrades(summaryLogin, 2000),
+    enabled: !!summaryLogin,
+  })
 
   const closeMutation = useMutation({
     mutationFn: ({ accountId, ticket }: { accountId: number; ticket: number }) =>
@@ -94,6 +113,40 @@ export default function Dashboard() {
           colorClass={summary.pausedAccounts > 0 ? 'text-red-400' : 'text-slate-500'}
         />
       </div>
+
+      {summaryAccount && summaryPerf?.equity_curve?.length ? (
+        <div className="rounded-xl border border-white/10 bg-slate-800/40 overflow-hidden">
+          <div className="border-b border-white/10 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">Summary</h2>
+              <div className="text-xs text-slate-500 mt-1">Evolución principal de la cuenta seleccionada</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400">Cuenta</span>
+              <select
+                value={summaryLogin}
+                onChange={(e) => setSummaryLogin(e.target.value)}
+                className="bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-sm text-white"
+              >
+                {filteredAccounts.filter((a) => a.status_data).map((a) => (
+                  <option key={a.id} value={a.login}>
+                    {a.status_data?.name ?? a.login}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="p-4">
+            <AccountAnalyticsTabs
+              curve={summaryPerf.equity_curve}
+              trades={summaryTrades}
+              initialBalance={summaryAccount.status_data?.initial_balance}
+              summaryOnly
+              title="Summary"
+            />
+          </div>
+        </div>
+      ) : null}
 
       {/* Alertas activas */}
       <div className="bento-card px-4 py-4">
