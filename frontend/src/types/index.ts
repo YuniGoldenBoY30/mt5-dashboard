@@ -98,6 +98,55 @@ export interface PerformanceSummary {
   n_snapshots: number
 }
 
+// ─── MT5 Report Types ─────────────────────────────────────────
+
+export interface MT5ReportSummary {
+  gain: number
+  activity: number
+  deposit: [number, number]
+  withdrawal: [number, number]
+  dividend: number
+  correction: number
+  credit: number
+}
+
+export interface MT5ReportIndicators {
+  sharp_ratio: number
+  profit_factor: number
+  recovery_factor: number
+  drawdown: number
+  deposit_load: number
+  trades_per_week: number
+  hold_time: number
+}
+
+export interface MT5ReportChartPoint {
+  x: number
+  y: [number, number]
+}
+
+export interface MT5ReportBalance {
+  balance: number
+  equity: number
+  period: number
+  chart: MT5ReportChartPoint[]
+}
+
+export interface AccountReportResponse {
+  account: {
+    name: string
+    currency: string
+    type: string
+    broker: string
+    account: string | number
+    digits: number
+  }
+  summary: MT5ReportSummary
+  summaryIndicators: MT5ReportIndicators
+  balance: MT5ReportBalance
+  table?: any
+}
+
 export interface Alert {
   id: number
   account_login: string

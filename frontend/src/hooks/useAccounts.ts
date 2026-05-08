@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { apiGetAccounts, apiGetPerformance, apiGetAlerts } from '../services/api'
+import { apiGetAccounts, apiGetPerformance, apiGetAlerts, apiGetAccountReport } from '../services/api'
 
 export function useAccounts() {
   return useQuery({
@@ -16,6 +16,15 @@ export function usePerformance(login: string, enabled = true) {
     queryFn: () => apiGetPerformance(login, 300),
     enabled: enabled && !!login,
     staleTime: 30_000,
+  })
+}
+
+export function useAccountReport(login: string, enabled = true) {
+  return useQuery({
+    queryKey: ['report', login],
+    queryFn: () => apiGetAccountReport(login, 2000),
+    enabled: enabled && !!login,
+    staleTime: 60_000,
   })
 }
 

@@ -5,6 +5,7 @@ import { usePerformance } from '../hooks/useAccounts'
 import StatCard from '../components/StatCard'
 import EquityChart from '../components/charts/EquityChart'
 import DrawdownChart from '../components/charts/DrawdownChart'
+import MT5ReportSection from '../components/accounts/MT5ReportSection'
 import { calcCAGR, calcSharpe, calcSortino, calcCalmar, maxDrawdown } from '../utils/metrics'
 import { fmtUSD, fmtPct } from '../types'
 
@@ -223,6 +224,8 @@ export default function Analytics() {
               )}
             </div>
           </div>
+          {/* MT5 Report Replica */}
+          <MT5ReportSection login={selectedLogin} />
         </>
       )}
 

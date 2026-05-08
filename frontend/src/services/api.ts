@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // API Client — MT5 Dashboard
 // ─────────────────────────────────────────────────────────────
-import type { Account, Alert, PerformanceSummary } from '../types'
+import type { Account, Alert, PerformanceSummary, AccountReportResponse } from '../types'
 
 const BASE = import.meta.env.VITE_API_URL || '/api/v1'
 
@@ -74,6 +74,13 @@ export async function apiGetPerformance(login: string, limit = 500): Promise<Per
     headers: authHeaders(),
   })
   return handleResponse<PerformanceSummary>(res)
+}
+
+export async function apiGetAccountReport(login: string, limit = 1000): Promise<AccountReportResponse> {
+  const res = await fetch(`${BASE}/report/${encodeURIComponent(login)}?limit=${limit}`, {
+    headers: authHeaders(),
+  })
+  return handleResponse<AccountReportResponse>(res)
 }
 
 // ─── Actions ──────────────────────────────────────────────────
