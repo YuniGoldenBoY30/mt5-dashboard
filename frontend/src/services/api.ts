@@ -91,13 +91,20 @@ export async function apiGetAccountReport(login: string, limit = 1000): Promise<
 }
 
 // ─── Actions ──────────────────────────────────────────────────
-export async function apiClosePosition(accountId: number, ticket: number): Promise<void> {
+export interface ClosePositionResponse {
+  status: string
+  ticket: number
+  command_id: number
+  message?: string | null
+}
+
+export async function apiClosePosition(accountId: number, ticket: number): Promise<ClosePositionResponse> {
   const res = await fetch(`${BASE}/close-position`, {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ account_id: accountId, ticket }),
   })
-  return handleResponse(res)
+  return handleResponse<ClosePositionResponse>(res)
 }
 
 // ─── Alerts ───────────────────────────────────────────────────
@@ -126,4 +133,3 @@ export function createAccountsWS(): WebSocket {
   const wsPath = path || '/ws/accounts'
   return new WebSocket(`${protocol}://${host}${wsPath}`)
 }
-

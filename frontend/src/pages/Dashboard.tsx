@@ -61,8 +61,8 @@ export default function Dashboard() {
   const closeMutation = useMutation({
     mutationFn: ({ accountId, ticket }: { accountId: number; ticket: number }) =>
       apiClosePosition(accountId, ticket),
-    onSuccess: () => {
-      toast.success('Posición cerrada')
+    onSuccess: (result) => {
+      toast.success(result.message ?? `Orden de cierre enviada para ticket #${result.ticket}`)
       qc.invalidateQueries({ queryKey: ['accounts'] })
     },
     onError: (e: Error) => toast.error(`Error: ${e.message}`),

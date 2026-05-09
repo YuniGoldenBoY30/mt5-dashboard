@@ -22,7 +22,7 @@ function AccountTechPanel({ account }: { account: ReturnType<typeof useAccountsW
 
   const closeMutation = useMutation({
     mutationFn: ({ ticket }: { ticket: number }) => apiClosePosition(account.id, ticket),
-    onSuccess: () => { toast.success('Posición cerrada'); qc.invalidateQueries({ queryKey: ['accounts'] }) },
+    onSuccess: (result) => { toast.success(result.message ?? `Orden de cierre enviada para ticket #${result.ticket}`); qc.invalidateQueries({ queryKey: ['accounts'] }) },
     onError: (e: Error) => toast.error(`Error: ${e.message}`),
   })
 

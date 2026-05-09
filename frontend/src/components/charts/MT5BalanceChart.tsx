@@ -139,7 +139,7 @@ export default function MT5BalanceChart({ balanceData, initialBalance, height = 
           <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" strokeOpacity={0.05} vertical={false} />
           <XAxis dataKey="time" tick={{ fill: '#64748b', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={40} />
           <YAxis
-            domain={mode === 'absolute' ? ['dataMin - 100', 'dataMax + 100'] : ['auto', 'auto']}
+            domain={[domainMin, domainMax]}
             tick={{ fill: '#64748b', fontSize: 10 }}
             tickLine={false}
             axisLine={false}
