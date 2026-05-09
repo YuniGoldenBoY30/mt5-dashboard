@@ -8,6 +8,8 @@
 #property version   "1.00"
 #property description "EA to export account telemetry to Dashboard Master via HTTP POST"
 
+#include <Trade/Trade.mqh>
+
 //--- Input parameters
 input string   InpDashboardUrl = "https://trading.zenixtech.ai/api/v1/telemetry"; // URL del Dashboard Master
 input string   InpApiToken     = "snqAQ8OpesIP0p1Ur8Z-H0mk-M389qdg8c3dAX8D4OhMiXFi"; // VPS_SECRET_TOKEN (Bearer)
@@ -24,9 +26,12 @@ input bool     InpUseHalfKelly = true;                                          
 input int      InpClosedTradesLimit = 20;                                          // Máximo de trades cerrados a enviar
 
 string g_vps_id = "";
+CTrade g_trade;
 
 bool        history_synced = false;
 string      global_var_name;
+string      g_pending_command_results_entries = "";
+string      g_processed_command_ids = "";
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -51,6 +56,7 @@ int OnInit()
      }
 
    EventSetTimer(InpUpdateFreq);
+   g_trade.SetAsyncMode(false);
    Print("TelemetryExporter iniciado. VPS ID=", g_vps_id, ". Emitiendo a: ", InpDashboardUrl);
    
    // Nombre único para la bandera de sincronización (basado en cuenta)
@@ -722,6 +728,207 @@ string BuildBulkTelemetryUrl()
    return url + "/api/v1/telemetry/bulk";
   }
 
+//+------------------------------------------------------------------+
+//| Escape mínimo para valores JSON dinámicos                        |
+//+------------------------------------------------------------------+
+string EscapeJsonValue(string value)
+  {
+   StringReplace(value, "\\", "\\\\");
+   StringReplace(value, "\"", "\\\"");
+   StringReplace(value, "\r", " ");
+   StringReplace(value, "\n", " ");
+   return value;
+  }
+
+//+------------------------------------------------------------------+
+//| Estado local de resultados de comandos                           |
+//+------------------------------------------------------------------+
+bool HasPendingCommandResults()
+  {
+   return (StringLen(g_pending_command_results_entries) > 0);
+  }
+
+string GetPendingCommandResultsJson()
+  {
+   if(!HasPendingCommandResults())
+      return "[]";
+   return "[" + g_pending_command_results_entries + "]";
+  }
+
+void ClearPendingCommandResults()
+  {
+   g_pending_command_results_entries = "";
+   g_processed_command_ids = "";
+  }
+
+void MarkCommandProcessed(const long command_id)
+  {
+   string token = "|" + IntegerToString((int)command_id) + "|";
+   if(StringFind(g_processed_command_ids, token) < 0)
+      g_processed_command_ids += token;
+  }
+
+bool IsCommandProcessed(const long command_id)
+  {
+   string token = "|" + IntegerToString((int)command_id) + "|";
+   return (StringFind(g_processed_command_ids, token) >= 0);
+  }
+
+void QueueCommandResult(const long command_id, const ulong ticket, const string status, string message)
+  {
+   message = EscapeJsonValue(message);
+   string entry = StringFormat("{\"command_id\":%d,\"ticket\":%I64u,\"status\":\"%s\",\"message\":\"%s\"}",
+                               (int)command_id, ticket, status, message);
+   if(StringLen(g_pending_command_results_entries) > 0)
+      g_pending_command_results_entries += ",";
+   g_pending_command_results_entries += entry;
+   MarkCommandProcessed(command_id);
+  }
+
+//+------------------------------------------------------------------+
+//| Lectura simple de campos JSON del backend                        |
+//+------------------------------------------------------------------+
+string ExtractJsonStringValue(const string json, const string key)
+  {
+   string pattern = "\"" + key + "\":\"";
+   int start = StringFind(json, pattern);
+   if(start < 0)
+      return "";
+
+   start += StringLen(pattern);
+   int end = start;
+   int total_len = StringLen(json);
+
+   while(end < total_len)
+     {
+      ushort ch = (ushort)StringGetCharacter(json, end);
+      ushort prev = (end > start) ? (ushort)StringGetCharacter(json, end - 1) : 0;
+      if(ch == 34 && prev != 92)
+         break;
+      end++;
+     }
+
+   return StringSubstr(json, start, end - start);
+  }
+
+long ExtractJsonLongValue(const string json, const string key)
+  {
+   string pattern = "\"" + key + "\":";
+   int start = StringFind(json, pattern);
+   if(start < 0)
+      return -1;
+
+   start += StringLen(pattern);
+   int end = start;
+   int total_len = StringLen(json);
+
+   while(end < total_len)
+     {
+      ushort ch = (ushort)StringGetCharacter(json, end);
+      if((ch < 48 || ch > 57) && ch != 45)
+         break;
+      end++;
+     }
+
+   return (long)StringToInteger(StringSubstr(json, start, end - start));
+  }
+
+//+------------------------------------------------------------------+
+//| Ejecutar cierre real del ticket                                  |
+//+------------------------------------------------------------------+
+void ExecuteClosePositionCommand(const long command_id, const ulong ticket)
+  {
+   if(command_id <= 0 || ticket == 0)
+      return;
+
+   if(!PositionSelectByTicket(ticket))
+     {
+      PrintFormat("COMMAND CLOSE FAILED: command_id=%d ticket=%I64u no encontrado", (int)command_id, ticket);
+      QueueCommandResult(command_id, ticket, "failed", "Ticket no encontrado en posiciones abiertas");
+      return;
+     }
+
+   ResetLastError();
+   bool close_ok = g_trade.PositionClose(ticket);
+   int last_error = GetLastError();
+   uint retcode = g_trade.ResultRetcode();
+   string retcode_desc = g_trade.ResultRetcodeDescription();
+   string message = retcode_desc;
+
+   if(StringLen(message) == 0)
+      message = "retcode=" + IntegerToString((int)retcode);
+   else
+      message = "retcode=" + IntegerToString((int)retcode) + " " + retcode_desc;
+
+   if(last_error != 0)
+      message += " | mt5_error=" + IntegerToString(last_error);
+
+   if(close_ok)
+     {
+      PrintFormat("COMMAND CLOSE OK: command_id=%d ticket=%I64u %s", (int)command_id, ticket, message);
+      QueueCommandResult(command_id, ticket, "executed", message);
+     }
+   else
+     {
+      PrintFormat("COMMAND CLOSE FAILED: command_id=%d ticket=%I64u %s", (int)command_id, ticket, message);
+      QueueCommandResult(command_id, ticket, "failed", message);
+     }
+  }
+
+void HandleTradeCommandObject(const string command_json)
+  {
+   long command_id = ExtractJsonLongValue(command_json, "id");
+   ulong ticket = (ulong)ExtractJsonLongValue(command_json, "ticket");
+   string action = ExtractJsonStringValue(command_json, "action");
+
+   if(command_id <= 0 || ticket == 0 || action != "close_position")
+      return;
+
+   if(IsCommandProcessed(command_id))
+      return;
+
+   ExecuteClosePositionCommand(command_id, ticket);
+  }
+
+void ProcessTelemetryCommands(const string response_text)
+  {
+   string commands_key = "\"commands\":[";
+   int start = StringFind(response_text, commands_key);
+   if(start < 0)
+      return;
+
+   start += StringLen(commands_key);
+   int total_len = StringLen(response_text);
+   int depth = 0;
+   int object_start = -1;
+
+   for(int i = start; i < total_len; i++)
+     {
+      ushort ch = (ushort)StringGetCharacter(response_text, i);
+
+      if(ch == 123)
+        {
+         if(depth == 0)
+            object_start = i;
+         depth++;
+        }
+      else if(ch == 125)
+        {
+         depth--;
+         if(depth == 0 && object_start >= 0)
+           {
+            string command_json = StringSubstr(response_text, object_start, i - object_start + 1);
+            HandleTradeCommandObject(command_json);
+            object_start = -1;
+           }
+        }
+      else if(ch == 93 && depth == 0)
+        {
+         break;
+        }
+     }
+  }
+
 bool SendBulkToDashboard(string json_body)
   {
    char data[];
@@ -830,6 +1037,8 @@ void SendTelemetry()
    
    string actual_bot_name, actual_asset, actual_timeframe;
    DetectActiveBots(actual_bot_name, actual_asset, actual_timeframe);
+   bool had_pending_command_results = HasPendingCommandResults();
+   string command_results_json = GetPendingCommandResultsJson();
    
    string payload = StringFormat("{"
                                  "\"vps_id\":\"%s\","
@@ -861,11 +1070,12 @@ void SendTelemetry()
                                     "\"max_drawdown_pct\":%.4f,"
                                     "\"closed_trades\":%s,"
                                     "\"positions\":%s"
-                                 "}]"
+                                 "}],"
+                                 "\"command_results\":%s"
                                  "}",
                                  g_vps_id, timestamp, account_id, broker, server, acc_name, GetAccountType(), actual_asset, actual_bot_name, actual_timeframe, actual_initial_balance, balance, equity, margin, free_margin, margin_level, drawdown_pct,
                                  regime, active_mode, daily_pnl_usd, open_risk_pct, win_rate, profit_factor, kelly_fraction,
-                                 n_trades_cycle, max_drawdown_pct, closed_trades_json, positions_json);
+                                 n_trades_cycle, max_drawdown_pct, closed_trades_json, positions_json, command_results_json);
 
    // 4. Preparar HTTP POST
    char post_data[];
@@ -897,6 +1107,9 @@ void SendTelemetry()
       Print("DEBUG: Servidor respondió con código HTTP: ", res);
       string response_text = CharArrayToString(result);
       if (res >= 200 && res < 300) {
+         if(had_pending_command_results)
+            ClearPendingCommandResults();
+         ProcessTelemetryCommands(response_text);
          Print("SUCCESS: Datos procesados por el Dashboard. Respuesta: ", response_text);
       } else {
          Print("WARNING: El servidor rechazó los datos (Código ", res, "). Detalle: ", response_text);
