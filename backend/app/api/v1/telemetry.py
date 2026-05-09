@@ -6,14 +6,80 @@ from app.core.config import settings
 
 from app.core.security import verify_vps_token
 from app.db.session import get_db
-from app.schemas.schemas import VpsTelemetryPayload
+from app.models.models import Alert, TradeCommand
+from app.schemas.schemas import TelemetryResponse, TradeCommandPayload, VpsTelemetryPayload
 from app.services.telemetry import TelemetryService
 from app.services.alert_engine import AlertService, send_alert_email
 from app.services.websocket import manager
 
 router = APIRouter()
 
-@router.post("/telemetry", status_code=200)
+
+def apply_command_results(db: Session, request_data: VpsTelemetryPayload) -> None:
+    for result in request_data.command_results:
+        command = db.query(TradeCommand).filter(TradeCommand.id == result.command_id).first()
+        if not command:
+            continue
+
+        normalized_status = (result.status or "").lower()
+        if normalized_status not in {"executed", "failed"}:
+            continue
+
+        command.status = normalized_status
+        command.result_message = result.message
+
+        if normalized_status == "failed":
+            db.add(
+                Alert(
+                    account_login=command.account_login,
+                    broker="",
+                    severity="warning",
+                    event_type="manual_close_failed",
+                    message=f"Fallo el cierre manual del ticket #{command.ticket}: {result.message or 'Sin detalle'}",
+                    payload={"ticket": command.ticket, "command_id": command.id},
+                    acknowledged=False,
+                )
+            )
+        else:
+            db.add(
+                Alert(
+                    account_login=command.account_login,
+                    broker="",
+                    severity="info",
+                    event_type="manual_close_executed",
+                    message=f"Cierre manual ejecutado para ticket #{command.ticket}",
+                    payload={"ticket": command.ticket, "command_id": command.id},
+                    acknowledged=True,
+                )
+            )
+
+
+def collect_pending_commands(db: Session, request_data: VpsTelemetryPayload) -> List[TradeCommandPayload]:
+    account_logins = list({str(acc.account_id) for acc in request_data.accounts})
+    if not account_logins:
+        return []
+
+    commands = (
+        db.query(TradeCommand)
+        .filter(
+            TradeCommand.account_login.in_(account_logins),
+            TradeCommand.status == "pending",
+        )
+        .order_by(TradeCommand.created_at.asc())
+        .all()
+    )
+
+    return [
+        TradeCommandPayload(
+            id=command.id,
+            account_login=command.account_login,
+            action=command.action,
+            ticket=command.ticket,
+        )
+        for command in commands
+    ]
+
+@router.post("/telemetry", status_code=200, response_model=TelemetryResponse)
 async def update_telemetry(
     request_data: VpsTelemetryPayload,
     request: Request,
@@ -27,6 +93,7 @@ async def update_telemetry(
         if client_ip not in allowed_list:
             raise HTTPException(status_code=403, detail="IP unauthorized. Access denied.")
 
+    apply_command_results(db, request_data)
     updated_accounts = TelemetryService.process_telemetry(db, request_data)
 
     # Alertas
@@ -50,7 +117,13 @@ async def update_telemetry(
         ]
         asyncio.create_task(manager.broadcast({"type": "accounts_update", "data": ws_data}))
 
-    return {"status": "ok", "processed_accounts": len(updated_accounts)}
+    pending_commands = collect_pending_commands(db, request_data)
+
+    return TelemetryResponse(
+        status="ok",
+        processed_accounts=len(updated_accounts),
+        commands=pending_commands,
+    )
 
 @router.post("/telemetry/bulk", status_code=200)
 @router.post("/bulk", status_code=200)

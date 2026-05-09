@@ -47,6 +47,17 @@ class ClosedTrade(Base):
     close_time_utc = Column(DateTime(timezone=True), index=True)
     profit_net = Column(Float)
 
+class TradeCommand(Base):
+    __tablename__ = "trade_commands"
+    id = Column(Integer, primary_key=True, index=True)
+    account_login = Column(String, index=True, nullable=False)
+    action = Column(String, nullable=False)  # close_position
+    ticket = Column(Integer, index=True, nullable=False)
+    status = Column(String, default="pending", index=True)  # pending, executed, failed
+    result_message = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
 class Alert(Base):
     __tablename__ = "alerts"
     id = Column(Integer, primary_key=True, index=True)

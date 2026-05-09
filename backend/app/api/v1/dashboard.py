@@ -1,11 +1,10 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-import httpx
 from app.core.security import get_current_user, require_dev
 from app.db.session import get_db
-from app.models.models import Account, TelemetryHistory, Alert, User, ClosedTrade
-from app.schemas.schemas import AccountStatus, PerformanceSummary, EquityPoint, AlertResponse, ClosePositionRequest, AccountReportResponse, ReportSummary, ReportIndicators, ReportBalance, ReportChartPoint
+from app.models.models import Account, TelemetryHistory, Alert, User, ClosedTrade, TradeCommand
+from app.schemas.schemas import AccountStatus, PerformanceSummary, EquityPoint, AlertResponse, ClosePositionRequest, ClosePositionResponse, AccountReportResponse, ReportSummary, ReportIndicators, ReportBalance, ReportChartPoint
 from app.services.audit import AuditService
 
 
@@ -261,23 +260,46 @@ async def get_account_report(
         table=report_table
     )
 
-@router.post("/close-position")
+@router.post("/close-position", response_model=ClosePositionResponse)
 async def close_position(request: ClosePositionRequest, db: Session = Depends(get_db), user: User = Depends(require_dev)):
     account = db.query(Account).filter(Account.id == request.account_id).first()
-    if not account or not account.server:
-        raise HTTPException(status_code=404, detail="Cuenta o servidor no encontrado")
+    if not account:
+        raise HTTPException(status_code=404, detail="Cuenta no encontrada")
 
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(f"{account.server}/close/{request.ticket}")
-        if resp.status_code != 200:
-            raise HTTPException(status_code=502, detail="Error en el EA")
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=str(e))
+    existing_command = (
+        db.query(TradeCommand)
+        .filter(
+            TradeCommand.account_login == account.login,
+            TradeCommand.action == "close_position",
+            TradeCommand.ticket == request.ticket,
+            TradeCommand.status == "pending",
+        )
+        .order_by(TradeCommand.created_at.desc())
+        .first()
+    )
+
+    if existing_command:
+        return ClosePositionResponse(
+            status="queued",
+            ticket=request.ticket,
+            command_id=existing_command.id,
+            message="Ya existe una orden pendiente para este ticket",
+        )
+
+    command = TradeCommand(
+        account_login=account.login,
+        action="close_position",
+        ticket=request.ticket,
+        status="pending",
+        result_message=f"Solicitado por {user.username}",
+    )
+    db.add(command)
+    db.flush()
 
     db.add(Alert(
         account_login=account.login, broker=account.broker, severity="info",
-        event_type="manual_close", message=f"Cierre manual ticket #{request.ticket} por {user.username}",
+        event_type="manual_close_requested", message=f"Solicitud de cierre ticket #{request.ticket} por {user.username}",
+        payload={"ticket": request.ticket, "command_id": command.id, "status": "pending"},
         acknowledged=True
     ))
 
@@ -288,12 +310,17 @@ async def close_position(request: ClosePositionRequest, db: Session = Depends(ge
         user_id=user.id,
         username=user.username,
         resource=f"Account {account.login} | Ticket {request.ticket}",
-        details={"ticket": request.ticket, "account_id": account.id}
+        details={"ticket": request.ticket, "account_id": account.id, "command_id": command.id, "status": "pending"}
     )
 
     db.commit()
 
-    return {"status": "closed", "ticket": request.ticket}
+    return ClosePositionResponse(
+        status="queued",
+        ticket=request.ticket,
+        command_id=command.id,
+        message="La orden se enviara al EA en el siguiente ciclo de telemetria",
+    )
 
 @router.get("/alerts", response_model=List[AlertResponse])
 async def get_alerts(acknowledged: Optional[bool] = None, limit: int = 100, db: Session = Depends(get_db), user: User = Depends(get_current_user)):

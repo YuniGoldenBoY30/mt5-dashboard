@@ -40,6 +40,29 @@ class AccountTelemetry(BaseModel):
     closed_trades: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
     positions: List[Dict[str, Any]] = Field(default_factory=list)
 
+class TradeCommandResultPayload(BaseModel):
+    command_id: int
+    ticket: int
+    status: str
+    message: Optional[str] = None
+
+class TradeCommandPayload(BaseModel):
+    id: int
+    account_login: str
+    action: str
+    ticket: int
+
+class TelemetryResponse(BaseModel):
+    status: str
+    processed_accounts: int
+    commands: List[TradeCommandPayload] = Field(default_factory=list)
+
+class ClosePositionResponse(BaseModel):
+    status: str
+    ticket: int
+    command_id: int
+    message: Optional[str] = None
+
 class VpsTelemetryPayload(BaseModel):
     """
     Payload de telemetria con patron UTC 3-timestamp (broker-agnostic).
@@ -55,6 +78,7 @@ class VpsTelemetryPayload(BaseModel):
     broker_time: Optional[datetime] = None
     broker_offset_seconds: Optional[int] = None
     accounts: List[AccountTelemetry]
+    command_results: List[TradeCommandResultPayload] = Field(default_factory=list)
 
 class AccountStatus(BaseModel):
     id: int
