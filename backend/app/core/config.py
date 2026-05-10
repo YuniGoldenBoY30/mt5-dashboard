@@ -11,7 +11,10 @@ class Settings(BaseSettings):
     vps_secret_token: str
     x_api_key: str  # Llave de firewall global para cabeceras X-API-KEY
     vps_allowed_ips: str = "*" # Separated by comma, e.g. "1.2.3.4,5.6.7.8"
-    rate_limit_requests: int = 100 # Requests per minute per IP
+    rate_limit_requests: int = 1200 # Requests per minute per IP
+    rate_limit_telemetry_requests: int = 1200 # Requests per minute per IP for MT5 telemetry
+    rate_limit_auth_requests: int = 60 # Requests per minute per IP for login/auth endpoints
+    rate_limit_default_requests: int = 300 # Requests per minute per IP for the rest of the API
     session_timeout_min: int = 60
     frontend_url: str  # Necesario para CORS estricto
     admin_team_password: str

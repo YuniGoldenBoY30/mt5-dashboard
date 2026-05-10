@@ -31,6 +31,26 @@ app = FastAPI(
 
 # Rate Limiter Simple (In-Memory) - Para producción usar Redis
 rate_limit_store = defaultdict(list)
+SENSITIVE_HEADERS = {"authorization", "x-api-key", "cookie", "set-cookie"}
+
+
+def get_rate_limit_for_request(request: Request) -> int:
+    path = request.url.path
+
+    if path in {"/api/v1/telemetry", "/api/v1/telemetry/bulk", "/api/v1/bulk"}:
+        return settings.rate_limit_telemetry_requests
+
+    if path in {"/api/v1/login", "/api/v1/me"}:
+        return settings.rate_limit_auth_requests
+
+    return settings.rate_limit_default_requests
+
+
+def sanitize_headers(headers: dict) -> dict:
+    sanitized = {}
+    for key, value in headers.items():
+        sanitized[key] = "[REDACTED]" if key.lower() in SENSITIVE_HEADERS else value
+    return sanitized
 
 app.add_middleware(
     CORSMiddleware,
@@ -51,7 +71,7 @@ app.add_middleware(
 async def diagnostic_logging_middleware(request: Request, call_next):
     # Log de depuración para 403
     log.info(f"Petición: {request.method} {request.url}")
-    log.info(f"Headers: {dict(request.headers)}")
+    log.info(f"Headers: {sanitize_headers(dict(request.headers))}")
     response = await call_next(request)
     log.info(f"Respuesta: {response.status_code}")
     return response
@@ -60,11 +80,14 @@ async def diagnostic_logging_middleware(request: Request, call_next):
 async def security_hardening_middleware(request: Request, call_next):
     # 1. Rate Limiting
     client_ip = request.client.host
+    path = request.url.path
+    rate_limit_key = f"{client_ip}:{path}"
+    max_requests = get_rate_limit_for_request(request)
     now = time.time()
-    rate_limit_store[client_ip] = [t for t in rate_limit_store[client_ip] if now - t < 60]
-    if len(rate_limit_store[client_ip]) >= settings.rate_limit_requests:
+    rate_limit_store[rate_limit_key] = [t for t in rate_limit_store[rate_limit_key] if now - t < 60]
+    if len(rate_limit_store[rate_limit_key]) >= max_requests:
         return JSONResponse(status_code=429, content={"detail": "Too many requests. DDoS protection active."})
-    rate_limit_store[client_ip].append(now)
+    rate_limit_store[rate_limit_key].append(now)
 
     # 2. Process request
     response = await call_next(request)
