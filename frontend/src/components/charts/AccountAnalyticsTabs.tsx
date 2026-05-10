@@ -254,12 +254,12 @@ export default function AccountAnalyticsTabs({
             <Legend wrapperStyle={{ fontSize: '12px' }} />
             {metricMode === 'money' ? (
               <>
-                <Bar dataKey="positive" name="Ganancia" fill="#65a30d" radius={[4, 4, 0, 0]} maxBarSize={layout.maxBarSize} />
-                <Bar dataKey="negative" name="Pérdida" fill="#ea580c" radius={[4, 4, 0, 0]} maxBarSize={layout.maxBarSize} />
+                <Bar dataKey="positive" name="Ganancia" fill="#65a30d" radius={2} maxBarSize={layout.maxBarSize} />
+                <Bar dataKey="negative" name="Pérdida" fill="#ea580c" radius={2} maxBarSize={layout.maxBarSize} />
                 <Line type="monotone" dataKey="cumulative" name="Acumulado" stroke="#64748b" dot={false} />
               </>
             ) : (
-              <Bar dataKey="deals" name="Deals" fill="#60a5fa" radius={[4, 4, 0, 0]} maxBarSize={layout.maxBarSize} />
+              <Bar dataKey="deals" name="Deals" fill="#60a5fa" radius={2} maxBarSize={layout.maxBarSize} />
             )}
           </ComposedChart>
         </ResponsiveContainer>
@@ -304,13 +304,13 @@ export default function AccountAnalyticsTabs({
             <Legend wrapperStyle={{ fontSize: '12px' }} />
             {metricMode === 'money' ? (
               <>
-                <Bar dataKey="longMoney" name="Long" fill="#60a5fa" radius={[4, 4, 0, 0]} maxBarSize={layout.maxBarSize} />
-                <Bar dataKey="shortMoney" name="Short" fill="#f97316" radius={[4, 4, 0, 0]} maxBarSize={layout.maxBarSize} />
+                <Bar dataKey="longMoney" name="Long" fill="#60a5fa" radius={2} maxBarSize={layout.maxBarSize} />
+                <Bar dataKey="shortMoney" name="Short" fill="#f97316" radius={2} maxBarSize={layout.maxBarSize} />
               </>
             ) : (
               <>
-                <Bar dataKey="longDeals" name="Long" fill="#60a5fa" radius={[4, 4, 0, 0]} maxBarSize={layout.maxBarSize} />
-                <Bar dataKey="shortDealsNegative" name="Short" fill="#f97316" radius={[4, 4, 0, 0]} maxBarSize={layout.maxBarSize} />
+                <Bar dataKey="longDeals" name="Long" fill="#60a5fa" radius={2} maxBarSize={layout.maxBarSize} />
+                <Bar dataKey="shortDealsNegative" name="Short" fill="#f97316" radius={2} maxBarSize={layout.maxBarSize} />
               </>
             )}
           </ComposedChart>
@@ -442,7 +442,10 @@ export default function AccountAnalyticsTabs({
       <div className="border-b border-white/[0.06] px-5 py-4 sm:px-6">
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm font-semibold text-slate-300">{title}</div>
-          <div className="flex flex-nowrap overflow-x-auto gap-6 sm:gap-8">
+          <div 
+            className="flex flex-nowrap overflow-x-auto gap-6 sm:gap-8 scroll-smooth"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
             {TAB_OPTIONS.map((tab) => (
               <button
                 key={tab.key}
