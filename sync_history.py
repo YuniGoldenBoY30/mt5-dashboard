@@ -10,8 +10,8 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), "backend", ".env"))
 
 DASHBOARD_URL = "https://trading.zenixtech.ai"
-API_KEY = os.getenv("X_API_KEY", "ZjestbIjvZj9MLzvryprX8DwC5RSk_oYJx_0Dns_yDc9Mhuf")
-VPS_TOKEN = os.getenv("VPS_SECRET_TOKEN", "snqAQ8OpesIP0p1Ur8Z-H0mk-M389qdg8c3dAX8D4OhMiXFi")
+API_KEY = os.getenv("X_API_KEY", "")
+VPS_TOKEN = os.getenv("VPS_SECRET_TOKEN", "")
 
 def sync_account_history():
     print("--- QuantFib History Synchronizer ---")
